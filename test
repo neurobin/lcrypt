@@ -1,5 +1,17 @@
 #!/usr/bin/python
-import sys
+import argparse, subprocess, json, os, sys, base64, binascii, time, hashlib, re, copy, textwrap, logging, json
+
+try:
+    from urllib.request import urlopen # Python 3
+except ImportError:
+    from urllib2 import urlopen # Python 2
+
+DEFAULT_CA = "https://acme-staging.api.letsencrypt.org"
+#DEFAULT_CA = "https://acme-v01.api.letsencrypt.org"
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.addHandler(logging.StreamHandler())
+LOGGER.setLevel(logging.INFO)
 
 def Input(prompt):
     if sys.version_info[0] < 3:
@@ -14,4 +26,72 @@ def getYesNo(prompt):
             return True
         elif(yn=="n" or yn=="N"):
             return False
-getYesNo("Print something")
+            
+def getDocRoot(dcr_json,dom):
+    try:
+        tmp = dcr_json[dom]
+        if not os.path.exists(tmp):
+            print("E: Document Root: "+tmp+" doesn't exist")
+            sys.exit()
+        return tmp
+    except:
+        print("E: Could not get Document Root for \""+dom+"\" in "+json.dumps(dcr_json))
+        sys.exit()
+
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent("""\
+            This script automates the process of getting a signed TLS certificate from
+            Let's Encrypt using the ACME protocol. It will need to be run on your server
+            and have access to your private account key, so PLEASE READ THROUGH IT! It's
+            only ~200 lines, so it won't take long.
+
+            ===Example Usage===
+            python acme_tiny.py --account-key ./account.key --csr ./domain.csr --acme-dir /usr/share/nginx/html/.well-known/acme-challenge/ > signed.crt
+            ===================
+
+            ===Example Crontab Renewal (once per month)===
+            0 0 1 * * python /path/to/acme_tiny.py --account-key /path/to/account.key --csr /path/to/domain.csr --acme-dir /usr/share/nginx/html/.well-known/acme-challenge/ > /path/to/signed.crt 2>> /var/log/acme_tiny.log
+            ==============================================
+            """)
+    )
+    parser.add_argument("--account-key", required=False, help="path to your Let's Encrypt account private key")
+    parser.add_argument("--csr", required=False, help="path to your certificate signing request")
+    parser.add_argument("--acme-dir", default=".well-known/acme-challenge", help="default = .well-known/acme-challenge")
+    parser.add_argument("--doc-root-json", required=True, help="JSON in the form {\"domain\": \"document root\"}")
+    parser.add_argument("--quiet", action="store_const", const=logging.ERROR, help="suppress output except for errors")
+    parser.add_argument("--ca", default=DEFAULT_CA, help="certificate authority, default is Let's Encrypt")
+    
+    global LOGGER
+    args = parser.parse_args(argv)
+    LOGGER.setLevel(args.quiet or LOGGER.level)
+    
+    dcr_json_s = args.doc_root_json
+    
+    # doc_root_json can point to a file too.
+    if os.path.isfile(args.doc_root_json):
+        try:
+            with open(args.doc_root_json, "r") as f:
+                dcr_json_s = f.read()
+        except:
+            print("E: Failed to read json file: "+args.doc_root_json)
+            sys.exit()
+    
+    # Now we are sure that dcr_json_s is a json string, not file
+    try:
+        dcr_json = json.loads(dcr_json_s)
+    except :
+        print("E: Failed to parse json")
+        sys.exit()
+        
+    
+    
+    print getDocRoot(dcr_json,"neurobin.org")
+    
+    #LOGGER.setLevel(args.quiet or LOGGER.level)
+
+    
+main(sys.argv[1:])
