@@ -13,51 +13,30 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
-def remove_prefix(text, prefix):
-    if text.startswith(prefix):
-        return text[len(prefix):]
-    return text #or whatever
-
-def Input(prompt=""):
-    if sys.version_info[0] < 3:
-        return raw_input(prompt); # Python 2
-    else:
-        return input(prompt); # Python 3
-    
-
-            
-def makeDirs(path):
-    try:
-        os.makedirs(path)
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:
-            raise
 
 def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
     # helper function base64 encode for jose spec
     def _b64(b):
         return base64.urlsafe_b64encode(b).decode('utf8').replace("=", "")
-    
-    def getYesNo(prompt):
-        while(True):
-            log.info(prompt)
-            yn=Input()
-            yn=yn.strip("\r\n")
-            if(yn=="Y" or yn=="y"):
-                return True
-            elif(yn=="n" or yn=="N"):
-                return False
                 
+    def makeDirs(path):
+        try:
+            os.makedirs(path)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                log.error(str(exception))
+                sys.exit(1)
+    
     # Gets document root from json by domain name
     def getDocRoot(dcr_json,dom):
         try:
             tmp = dcr_json[dom]
             if not os.path.exists(tmp):
-                log.info("E: Document Root: "+tmp+" doesn't exist")
-                sys.exit()
+                log.error("E: Document Root: "+tmp+" doesn't exist")
+                sys.exit(1)
             return tmp
         except:
-            log.info("E: Could not get Document Root for \""+dom+"\" in "+json.dumps(dcr_json))
+            log.error("E: Could not get Document Root for \""+dom+"\" in "+json.dumps(dcr_json))
             sys.exit()
 
     # parse account key to get public key
@@ -67,6 +46,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
     out, err = proc.communicate()
     if proc.returncode != 0:
         raise IOError("OpenSSL Error: {0}".format(err))
+        sys.exit()
     pub_hex, pub_exp = re.search(
         r"modulus:\n\s+00:([a-f0-9\:\s]+?)\npublicExponent: ([0-9]+)",
         out.decode('utf8'), re.MULTILINE|re.DOTALL).groups()
@@ -94,6 +74,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
         out, err = proc.communicate("{0}.{1}".format(protected64, payload64).encode('utf8'))
         if proc.returncode != 0:
             raise IOError("OpenSSL Error: {0}".format(err))
+            sys.exit()
         data = json.dumps({
             "header": header, "protected": protected64,
             "payload": payload64, "signature": _b64(out),
@@ -111,6 +92,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
     out, err = proc.communicate()
     if proc.returncode != 0:
         raise IOError("Error loading {0}: {1}".format(csr, err))
+        sys.exit()
     domains = set([])
     common_name = re.search(r"Subject:.*? CN=([^\s,;/]+)", out.decode('utf8'))
     if common_name is not None:
@@ -135,6 +117,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
         log.info("Already registered!")
     else:
         raise ValueError("Error registering: {0} {1}".format(code, result))
+        sys.exit()
     # verify each domain
     for domain in domains:
         log.info("Verifying {0}...".format(domain))
@@ -146,6 +129,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
         })
         if code != 201:
             raise ValueError("Error requesting challenges: {0} {1}".format(code, result))
+            sys.exit()
             
         # create the challenge file
         challenge = [c for c in json.loads(result.decode('utf8'))['challenges'] if c['type'] == "http-01"][0]
@@ -154,17 +138,17 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
         doc_root = getDocRoot(dcr_json,domain)
         chlng_dir = acme_dir.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
         if re.match("^([."+os.path.sep+(os.path.altsep or "")+"]*)$", chlng_dir):
-            log.info("E: Invalid acme dir: "+acme_dir)
+            log.error("E: Invalid acme dir: "+acme_dir)
             sys.exit()
         # Paranoid check for challenge directory
         elif not re.match(".{6,}",chlng_dir):
-            log.info("E: Too short to be a valid acme dir: "+acme_dir)
+            log.error("E: Too short to be a valid acme dir: "+acme_dir)
             sys.exit(1)
         wellknown_path = os.path.join(doc_root, chlng_dir, token)
-        log.info("Token: "+token+"\nKey: "+keyauthorization)
+        #log.info("Token: "+token+"\nKey: "+keyauthorization)
         # wellknown path must not be empty
         if(token==""): 
-            log.info("E: Failed to get the token.")
+            log.error("E: Failed to get the token.")
             sys.exit()
         index_file_path = os.path.join(wellknown_path,"index.html")
         #~ with open(wellknown_path, "w") as wellknown_file:
@@ -193,6 +177,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
             os.rmdir(wellknown_path)
             raise ValueError("Wrote file to {0}, but couldn't download {1}".format(
                 index_file_path, wellknown_url))
+            sys.exit()
 
         # notify challenge are met
         code, result = _send_signed_request(challenge['uri'], {
@@ -201,6 +186,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
         })
         if code != 202:
             raise ValueError("Error triggering challenge: {0} {1}".format(code, result))
+            sys.exit()
 
         # wait for challenge to be verified
         while True:
@@ -210,6 +196,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
             except IOError as e:
                 raise ValueError("Error checking challenge: {0} {1}".format(
                     e.code, json.loads(e.read().decode('utf8'))))
+                sys.exit()
             if challenge_status['status'] == "pending":
                 time.sleep(2)
             elif challenge_status['status'] == "valid":
@@ -220,6 +207,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
             else:
                 raise ValueError("{0} challenge did not pass: {1}".format(
                     domain, challenge_status))
+                sys.exit()
 
     # get the new certificate
     log.info("Signing certificate...")
@@ -232,6 +220,7 @@ def get_crt(account_key, csr, dcr_json, acme_dir, log=LOGGER, CA=DEFAULT_CA):
     })
     if code != 201:
         raise ValueError("Error signing certificate: {0} {1}".format(code, result))
+        sys.exit()
 
     # return signed certificate!
     log.info("Certificate signed!")
@@ -275,14 +264,14 @@ def main(argv):
             with open(args.doc_root_json, "r") as f:
                 dcr_json_s = f.read()
         except:
-            LOGGER.info("E: Failed to read json file: "+args.doc_root_json)
+            LOGGER.error("E: Failed to read json file: "+args.doc_root_json)
             sys.exit()
     
     # Now we are sure that dcr_json_s is a json string, not file
     try:
         dcr_json = json.loads(dcr_json_s)
     except :
-        LOGGER.info("E: Failed to parse json")
+        LOGGER.error("E: Failed to parse json")
         sys.exit()
         
     signed_crt = get_crt(args.account_key, args.csr, dcr_json, acme_dir=args.acme_dir, log=LOGGER, CA=args.ca)
