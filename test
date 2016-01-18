@@ -1,0 +1,17 @@
+#!/usr/bin/python
+import sys
+
+def Input(prompt):
+    if sys.version_info[0] < 3:
+        return raw_input(prompt); # Python 2
+    else:
+        return input(prompt); # Python 3
+def getYesNo(prompt):
+    while(True):
+        yn=Input(prompt)
+        yn=yn.strip("\r\n")
+        if(yn=="Y" or yn=="y"):
+            return True
+        elif(yn=="n" or yn=="N"):
+            return False
+getYesNo("Print something")
