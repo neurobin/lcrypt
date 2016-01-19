@@ -10,7 +10,7 @@ CA_TEST = "https://acme-staging.api.letsencrypt.org"
 DEFAULT_CA = CA_VALID
 ACME_DIR=".well-known/acme-challenge"
 VERSION = "0.0.1"
-VERSION_INFO="lcrypt version: "+VERSION
+VERSION_INFO="letsacme version: "+VERSION
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
@@ -275,11 +275,11 @@ def main(argv):
             only ~350 lines, so it won't take that long.
 
             ===Example Usage===
-            python lcrypt.py --account-key ./account.key --csr ./domain.csr --config-json /path/to/config.json --cert-file signed.crt --chain-file chain.crt
+            python letsacme.py --account-key ./account.key --csr ./domain.csr --config-json /path/to/config.json --cert-file signed.crt --chain-file chain.crt
             ===================
 
             ===Example Crontab Renewal (once per month)===
-            0 0 1 * * python /path/to/lcrypt.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --no-chain > /path/to/signed.crt 2>> /var/log/lcrypt.log
+            0 0 1 * * python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --no-chain > /path/to/signed.crt 2>> /var/log/letsacme.log
             ==============================================
             """)
     )
@@ -292,7 +292,7 @@ def main(argv):
     parser.add_argument("--ca", default=None, help="Certificate authority, default is Let's Encrypt.")
     parser.add_argument("--no-chain",action="store_true", help="Fetch chain (CABUNDLE) but do not print it on stdout.")
     parser.add_argument("--no-cert",action="store_true", help="Fetch certificate but do not print it on stdout.")
-    parser.add_argument("--force",action="store_true", help="Apply force. If a directory is found inside the challenge directory with the same name as challenge token, this option will delete the directory and it's content (Use with care).")
+    parser.add_argument("--force",action="store_true", help="Apply force. If a directory is found inside the challenge directory with the same name as challenge token (paranoid), this option will delete the directory and it's content (Use with care).")
     parser.add_argument("--test",action="store_true", help="Get test certificate (Invalid certificate). This option won't have any effect if --ca is passed.")
     parser.add_argument("--version",action="version",version=VERSION_INFO, help="Show version info.")
 
