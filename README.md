@@ -118,9 +118,9 @@ server {
 }
 ```
 An example for apache2:
-```apache2
+```sh
 <VirtualHost *:443>     
-        ...other configuration
+        ...other configurations
         SSLEngine on
         SSLCertificateKeyFile /path/to/domain.key
         SSLCertificateFile /path/to/signed.crt
