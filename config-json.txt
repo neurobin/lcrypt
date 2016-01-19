@@ -1,0 +1,8 @@
+{
+"example.org":"/var/www/html/",
+"forums.example.org":"/var/www/forums",
+"www.wiki.example.org":"/var/www/wiki",
+"subdomain3.example.org":"/var/www/subdomain3",
+"subdomain4.example.org":"/var/www/subdomain4",
+"www.subdomain5.example.org":"/var/www/subdomain5"
+}
