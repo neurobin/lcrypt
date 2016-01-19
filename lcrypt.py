@@ -286,17 +286,16 @@ def main(argv):
         sys.exit()
         
     signed_crt, chain_url = get_crt(args.account_key, args.csr, conf_json, acme_dir=ACME_DIR, log=LOGGER, CA=args.ca, force=args.force)
-    chain = get_chain(chain_url,log=LOGGER)
-    
     if(args.cert_file != ""):
         with open(args.cert_file, "w") as f:
             f.write(signed_crt)
+    if not args.no_cert: 
+        sys.stdout.write(signed_crt)
+    
+    chain = get_chain(chain_url,log=LOGGER)
     if(args.chain_file != ""):
         with open(args.chain_file, "w") as f:
             f.write(chain)
-    
-    if not args.no_cert: 
-        sys.stdout.write(signed_crt)
     if not args.no_chain:
         sys.stdout.write(chain)
 
