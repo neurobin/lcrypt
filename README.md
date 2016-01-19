@@ -1,4 +1,4 @@
-This script automates the process of getting a signed TLS/SSL certificate from Let's Encrypt using the ACME protocol. It will need to be run on your server and have **access to your private account key**. It gets both the certificate and the chain (CABUNDLE) and prints them on stdout unless specified otherwise.
+The **letsacme** script automates the process of getting a signed TLS/SSL certificate from Let's Encrypt using the ACME protocol. It will need to be run on your server and have **access to your private account key**. It gets both the certificate and the chain (CABUNDLE) and prints them on stdout unless specified otherwise.
 
 **PLEASE READ THE SOURCE CODE (~350 LINE)! YOU MUST TRUST IT WITH YOUR PRIVATE KEYS!**
 
@@ -138,8 +138,8 @@ Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a t
 
 #Permissions:
 
-1. **Challenge directory:** The script needs **permissions to write** files to the challenge directory which is in the document root of each domain. It simply means that the script requires permission to write to your document root. If that seems to be security issue then you can work it around by creating the challenge directories first. If the challenge directory already exists it will only need permission to write to the challenge directory not the document root.
-2. **Account key:** Save the *account.key* file to a secure location. **letsacme** only needs **read permission** to it, so you can revoke write permission from it and make it absolutely secure.
+1. **Challenge directory:** The script needs **permission to write** files to the challenge directory which is in the document root of each domain. It simply means that the script requires permission to write to your document root. If that seems to be security issue then you can work it around by creating the challenge directories first. If the challenge directory already exists it will only need permission to write to the challenge directory not the document root.
+2. **Account key:** Save the *account.key* file to a secure location. **letsacme** only needs **read permission** to it, so you can revoke write permission from it.
 3. **Domain key:** Save the *domain.key* file to a secure location. **letsacme** doesn't use this file. So **no permission** should be allowed for this file.
 4. **Cert files:** Save the *signed.crt*, *chain.crt* and *fullchain.crt* in a secure location. **letsacme** needs **write permission** for these files as it will update these files in a timely basis.
 5. **Config json:** Save it in a secure location (It stores the path to the document root for each domain). **letsacme** needs only **read permission** to this file.
