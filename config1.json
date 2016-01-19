@@ -1,0 +1,8 @@
+{
+"neurobin.org": { "DocumentRoot":"/home/neurcpiw/public_html/" },
+"wiki.neurobin.org": { "DocumentRoot":"/home/neurcpiw/wiki" },
+"www.forums.neurobin.org": { "DocumentRoot":"/home/neurcpiw/forums" },
+"apis.neurobin.org": { "DocumentRoot":"/home/neurcpiw/apis" },
+"secureme.neurobin.org": { "DocumentRoot":"/home/neurcpiw/secureme" },
+"www.chopshop.neurobin.org": { "DocumentRoot":"/home/neurcpiw/chopshop" }
+}

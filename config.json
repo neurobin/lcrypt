@@ -1,0 +1,20 @@
+{
+"example.org": {
+    "DocumentRoot":"/var/www/public_html"
+    },
+"subdomain1.example.org": {
+    "DocumentRoot":"/var/www/subdomain1"
+    },
+"www.subdomain2.example.org": {
+    "DocumentRoot":"/var/www/subdomain2"
+    },
+"subdomain3.example.org": {
+    "DocumentRoot":"/var/www/subdomain3"
+    },
+"subdomain4.example.org": {
+    "DocumentRoot":"/var/www/subdomain4"
+    },
+"www.subdomain5.example.org": {
+    "DocumentRoot":"/var/www/subdomain5"
+    }
+}

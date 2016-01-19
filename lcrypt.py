@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-import argparse, subprocess, json, os, sys, base64, binascii, time, hashlib, re, copy, textwrap, logging
+import argparse, subprocess, json, os, sys, base64, binascii, time, hashlib, re, copy, textwrap, logging, errno
 try:
     from urllib.request import urlopen # Python 3
 except ImportError:
     from urllib2 import urlopen # Python 2
-
-DEFAULT_CA = "https://acme-staging.api.letsencrypt.org"
-#DEFAULT_CA = "https://acme-v01.api.letsencrypt.org"
+    
+CA_VALID = "https://acme-v01.api.letsencrypt.org"
+CA_TEST = "https://acme-staging.api.letsencrypt.org"
+DEFAULT_CA = CA_VALID
 ACME_DIR=".well-known/acme-challenge"
 VERSION = "0.0.1"
 VERSION_INFO="lcrypt version: "+VERSION
@@ -19,7 +20,7 @@ def get_chain(url,log):
     resp = urlopen(url)
     if(resp.getcode() != 200):
         log.error("E: Failed to fetch chain (CABUNDLE) from: "+url)
-        sys.exit()
+        sys.exit(1)
     return """-----BEGIN CERTIFICATE-----\n{0}\n-----END CERTIFICATE-----\n""".format(
         "\n".join(textwrap.wrap(base64.b64encode(resp.read()).decode('utf8'), 64)))
         
@@ -44,18 +45,31 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
             else:
                 dom1 = "www."+dom
             if dom1 not in conf_json:
-                log.error("E: Failed to find "+dom+" or "+dom1+" in "+conf_json)
-                sys.exit()
+                log.error("E: Failed to find "+dom+" or "+dom1+" in\n"+json.dumps(conf_json, indent=4, sort_keys=True))
+                sys.exit(1)
             else: dom = dom1
         try:
-            doc_root = conf_json[dom]
+            if 'DocumentRoot' in conf_json[dom]:
+                doc_root = conf_json[dom]['DocumentRoot']
+            elif 'Document Root' in conf_json[dom]:         #extended support
+                doc_root = conf_json[dom]['Document Root'] 
+            elif 'DocRoot' in conf_json[dom]:               #extended support
+                doc_root = conf_json[dom]['DocRoot']
+            elif 'Doc Root' in conf_json[dom]:              #extended support
+                doc_root = conf_json[dom]['Doc Root']
+            else:
+                log.error("E: There is no entry for \"DocumentRoot\" in\n"+json.dumps(conf_json[dom], indent=4, sort_keys=True))
+                sys.exit(1)
             if not os.path.exists(doc_root):
                 log.error("E: Document Root: "+doc_root+" doesn't exist")
                 sys.exit(1)
             return doc_root
+        except KeyError:
+            log.error("E: There is no entry for "+dom+" in\n"+json.dumps(conf_json, indent=4, sort_keys=True))
+            sys.exit(1)
         except:
-            log.error("E: Could not get Document Root for \""+dom+"\" in "+json.dumps(conf_json))
-            sys.exit()
+            log.error("E: Could not get a valid Document Root for \""+dom+"\" from: \n" +json.dumps(conf_json, indent=4, sort_keys=True))
+            sys.exit(1)
 
     # parse account key to get public key
     log.info("Parsing account key...")
@@ -64,7 +78,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
     out, err = proc.communicate()
     if proc.returncode != 0:
         log.error("OpenSSL Error: {0}".format(err))
-        sys.exit()
+        sys.exit(1)
     pub_hex, pub_exp = re.search(
         r"modulus:\n\s+00:([a-f0-9\:\s]+?)\npublicExponent: ([0-9]+)",
         out.decode('utf8'), re.MULTILINE|re.DOTALL).groups()
@@ -92,7 +106,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
         out, err = proc.communicate("{0}.{1}".format(protected64, payload64).encode('utf8'))
         if proc.returncode != 0:
             log.error("OpenSSL Error: {0}".format(err))
-            sys.exit()
+            sys.exit(1)
         data = json.dumps({
             "header": header, "protected": protected64,
             "payload": payload64, "signature": _b64(out),
@@ -112,7 +126,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
     out, err = proc.communicate()
     if proc.returncode != 0:
         log.error("Error loading {0}: {1}".format(csr, err))
-        sys.exit()
+        sys.exit(1)
     domains = set([])
     common_name = re.search(r"Subject:.*? CN=([^\s,;/]+)", out.decode('utf8'))
     if common_name is not None:
@@ -136,7 +150,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
         log.info("Already registered!")
     else:
         log.error("Error registering: {0} {1}".format(code, result))
-        sys.exit()
+        sys.exit(1)
     # verify each domain
     for domain in domains:
         log.info("Verifying {0}...".format(domain))
@@ -148,7 +162,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
         })
         if code != 201:
             log.error("Error requesting challenges: {0} {1}".format(code, result))
-            sys.exit()
+            sys.exit(1)
             
         # create the challenge file
         challenge = [c for c in json.loads(result.decode('utf8'))['challenges'] if c['type'] == "http-01"][0]
@@ -156,20 +170,37 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
         keyauthorization = "{0}.{1}".format(token, thumbprint)
         doc_root = get_doc_root(conf_json,domain)
         chlng_dir = acme_dir.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
+        make_dirs(os.path.join(doc_root, chlng_dir))  # create the challenge dir if not exists
+        # paranoid check
+        token = token.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
+        if not (re.match("^[^"+os.path.sep+"/\\\\"+(os.path.altsep or "")+"]{4,}$",token)): # the number 4 (3 is enough) takes account for .. scenerio
+            log.error("E: Invalid and possibly dangerous token.")
+            sys.exit(1)
         wellknown_path = os.path.join(doc_root, chlng_dir, token)
-        index_file_path = os.path.join(wellknown_path,"index.html")
-        if os.path.isfile(wellknown_path):
-            if(force):
-                os.remove(wellknown_path)
-                make_dirs(wellknown_path)
-            else : 
-                log.error(wellknown_path+" is a file. We require it to be a directory. Either delete\
-                it manually or run with --force option.")
-                sys.exit()
-        make_dirs(wellknown_path)
-        with open(index_file_path, "w") as wellknown_file:
-            wellknown_file.write(keyauthorization)
-        
+        # another paranoid check
+        if os.path.isdir(wellknown_path):
+            log.warning("W: "+wellknown_path+" exists.")
+            try: os.rmdir(wellknown_path)
+            except OSError:
+                if(force):
+                    try:
+                        #shutil.rmtree(wellknown_path) # This is why we have done paranoid check on token
+                        # though it itself is inside a paranoid check which will probably never be reached
+                        log.info("Removed "+wellknown_path)
+                    except:
+                        log.error("E: Failed to remove "+wellknown_path)
+                        sys.exit(1)
+                else : 
+                    log.error("E: "+wellknown_path+" is a directory. It shouldn't even exist in normal cases.\
+                    Try --force option if you are sure about deleting it and all of its' content")
+                    sys.exit(1)
+        try:
+            with open(wellknown_path, "w") as wellknown_file:
+                wellknown_file.write(keyauthorization)
+        except Exception as e:
+            log.error(str(e))
+            sys.exit(1)
+            
         # check that the file is in place
         wellknown_url = "http://{0}/.well-known/acme-challenge/{1}".format(domain, token)
         try:
@@ -177,11 +208,10 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
             resp_data = resp.read().decode('utf8').strip()
             assert resp_data == keyauthorization
         except (IOError, AssertionError):
-            os.remove(index_file_path)
-            os.rmdir(wellknown_path)
+            os.remove(wellknown_path)
             log.error("Wrote file to {0}, but couldn't download {1}".format(
-                index_file_path, wellknown_url))
-            sys.exit()
+                wellknown_path, wellknown_url))
+            sys.exit(1)
 
         # notify challenge are met
         code, result, crt_info = _send_signed_request(challenge['uri'], {
@@ -190,7 +220,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
         })
         if code != 202:
             log.error("Error triggering challenge: {0} {1}".format(code, result))
-            sys.exit()
+            sys.exit(1)
 
         # wait for challenge to be verified
         while True:
@@ -199,22 +229,23 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
                 challenge_status = json.loads(resp.read().decode('utf8'))
             except IOError as e:
                 log.error("Error checking challenge: {0} {1}".format(
-                    e.code, json.loads(e.read().decode('utf8'))))
-                sys.exit()
+                    e.code, json.dumps(e.read().decode('utf8'),indent=4)))
+                sys.exit(1)
             if challenge_status['status'] == "pending":
                 time.sleep(2)
             elif challenge_status['status'] == "valid":
                 log.info("{0} verified!".format(domain))
-                os.remove(index_file_path)
-                os.rmdir(wellknown_path)
+                os.remove(wellknown_path)
                 break
             else:
                 log.error("{0} challenge did not pass: {1}".format(
                     domain, challenge_status))
-                sys.exit()
-
+                sys.exit(1)
+                
     # get the new certificate
-    log.info("Signing certificate...")
+    if(CA == CA_TEST):test_mode = " (test mode)"
+    else: test_mode = ""
+    log.info("Signing certificate..."+test_mode)
     proc = subprocess.Popen(["openssl", "req", "-in", csr, "-outform", "DER"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     csr_der, err = proc.communicate()
@@ -224,13 +255,13 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
     })
     if code != 201:
         log.error("Error signing certificate: {0} {1}".format(code, result))
-        sys.exit()
+        sys.exit(1)
 
     # get the chain url
     chain_url = re.match("\\s*<([^>]+)>;rel=\"up\"",crt_info['Link'])
     
     # return signed certificate!
-    log.info("Certificate signed!")
+    log.info("Certificate signed!"+test_mode)
     return """-----BEGIN CERTIFICATE-----\n{0}\n-----END CERTIFICATE-----\n""".format(
         "\n".join(textwrap.wrap(base64.b64encode(result).decode('utf8'), 64))), chain_url.group(1)
 
@@ -241,27 +272,28 @@ def main(argv):
             This script automates the process of getting a signed TLS/SSL certificate from
             Let's Encrypt using the ACME protocol. It will need to be run on your server
             and have access to your private account key, so PLEASE READ THROUGH IT! It's
-            only ~300 lines, so it won't take long.
+            only ~350 lines, so it won't take that long.
 
             ===Example Usage===
-            python lcrypt.py --account-key ./account.key --csr ./domain.csr --config-json '{"example.com":"/usr/share/nginx/html"}' --cert-file signed.crt --chain-file chain.crt
+            python lcrypt.py --account-key ./account.key --csr ./domain.csr --config-json /path/to/config.json --cert-file signed.crt --chain-file chain.crt
             ===================
 
             ===Example Crontab Renewal (once per month)===
-            0 0 1 * * python /path/to/lcrypt.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json '{"example.com":"/usr/share/nginx/html"}' > /path/to/signed.crt 2>> /var/log/lcrypt.log
+            0 0 1 * * python /path/to/lcrypt.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --no-chain > /path/to/signed.crt 2>> /var/log/lcrypt.log
             ==============================================
             """)
     )
     parser.add_argument("--account-key", required=True, help="Path to your Let's Encrypt account private key.")
     parser.add_argument("--csr", required=True, help="Path to your certificate signing request.")
-    parser.add_argument("--config-json", required=True, help="Configuration JSON file. Must contain \"domain\":\"Document Root\" entry for each domain.")
+    parser.add_argument("--config-json", required=True, help="Configuration JSON file. Must contain \"DocumentRoot\":\"/path/to/document/root\" entry for each domain.")
     parser.add_argument("--cert-file", default="", help="File to write the certificate to. Overwrites if file exists.")
     parser.add_argument("--chain-file", default="", help="File to write the certificate to. Overwrites if file exists.")
     parser.add_argument("--quiet", action="store_const", const=logging.ERROR, help="Suppress output except for errors.")
-    parser.add_argument("--ca", default=DEFAULT_CA, help="Certificate authority, default is Let's Encrypt.")
-    parser.add_argument("--no-chain",action="store_true", help="Fetch chain (CABUNDLE) but do not print it.")
-    parser.add_argument("--no-cert",action="store_true", help="Fetch certificate but do not print it.")
-    parser.add_argument("--force",action="store_true", help="Force create challenge dir. If challenge dir is an existing file (created by other letsencrypt clients), this will delete the file and create a directory in its place.")
+    parser.add_argument("--ca", default=None, help="Certificate authority, default is Let's Encrypt.")
+    parser.add_argument("--no-chain",action="store_true", help="Fetch chain (CABUNDLE) but do not print it on stdout.")
+    parser.add_argument("--no-cert",action="store_true", help="Fetch certificate but do not print it on stdout.")
+    parser.add_argument("--force",action="store_true", help="Apply force. If a directory is found inside the challenge directory with the same name as challenge token, this option will delete the directory and it's content (Use with care).")
+    parser.add_argument("--test",action="store_true", help="Get test certificate (Invalid certificate). This option won't have any effect if --ca is passed.")
     parser.add_argument("--version",action="version",version=VERSION_INFO, help="Show version info.")
 
     args = parser.parse_args(argv)
@@ -276,16 +308,20 @@ def main(argv):
                 config_json_s = f.read()
         except:
             LOGGER.error("E: Failed to read json file: "+args.config_json)
-            sys.exit()
+            sys.exit(1)
     
     # Now we are sure that config_json_s is a json string, not file
     try:
         conf_json = json.loads(config_json_s)
     except :
         LOGGER.error("E: Failed to parse json")
-        sys.exit()
-        
+        sys.exit(1)
+    
+    if not args.ca: 
+        if args.test: args.ca = CA_TEST
+        else: args.ca = DEFAULT_CA
     signed_crt, chain_url = get_crt(args.account_key, args.csr, conf_json, acme_dir=ACME_DIR, log=LOGGER, CA=args.ca, force=args.force)
+    
     if(args.cert_file != ""):
         with open(args.cert_file, "w") as f:
             f.write(signed_crt)
