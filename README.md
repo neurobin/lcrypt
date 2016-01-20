@@ -187,7 +187,7 @@ Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a t
 
 #Permissions:
 
-1. **Challenge directory:** The script needs **permission to write** files to the challenge directory which is in the document root of each domain (for the Cnfig JSON). It simply means that the script requires permission to write to your document root. If that seems to be a security issue then you can work it around by creating the challenge directories first. If the challenge directory already exists it will only need permission to write to the challenge directory not the document root. The acme-dir method needs **write permission** to the directory specified by `--acme-dir`.
+1. **Challenge directory:** The script needs **permission to write** files to the challenge directory which is in the document root of each domain (for the Config JSON). It simply means that the script requires permission to write to your document root. If that seems to be a security issue then you can work it around by creating the challenge directories first. If the challenge directory already exists it will only need permission to write to the challenge directory not the document root. The acme-dir method needs **write permission** to the directory specified by `--acme-dir`.
 2. **Account key:** Save the *account.key* file to a secure location. **letsacme** only needs **read permission** to it, so you can revoke write permission from it.
 3. **Domain key:** Save the *domain.key* file to a secure location. **letsacme** doesn't use this file. So **no permission** should be allowed for this file.
 4. **Cert files:** Save the *signed.crt*, *chain.crt* and *fullchain.crt* in a secure location. **letsacme** needs **write permission** for these files as it will update these files in a timely basis.
@@ -195,7 +195,7 @@ Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a t
 
 As you will want to secure yourself as much as you can and thus give as less permission as possible to the script, I suggest you create an extra user for this script and give that user write permission to the challenge directory and the cert files, and read permission to the private key (*account.key*) and the config file (*config.json*) and nothing else.
 
-#For advanced users:
+#Advanced use:
 
 Run it with `-h` flag to get help.
 ```sh
