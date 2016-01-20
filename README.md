@@ -235,7 +235,7 @@ cron:
 0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /bin/sh /path/to/script
 ```
 
-**Nnotice** that the names for the crt files are different (*1.crt) and there's no server restart command. We are renewing the certificate every day but that doesn't mean we have install it every day and restart the server along with it. We can graciously wait for 60 days and then install the certificate as the certificate (*1.crt) is always renewed. We just need to overwrite the existing one with *1.crt's. To do that you can set up another cron to overwrite old crt's with new ones and restart the server at a 60 day interval.
+**Nnotice** that the names for the crt files are different (\*1.crt) and there's no server restart command. We are renewing the certificate every day but that doesn't mean we have install it every day and restart the server along with it. We can graciously wait for 60 days and then install the certificate as the certificate (\*1.crt) is always renewed. We just need to overwrite the existing one with \*1.crt's. To do that you can set up another cron to overwrite old crt's with new ones and restart the server at a 60 day interval.
 ```
 0 0 1 */2 * /bin/cp /old/crt/path/signed1.crt /old/crt/path/signed.crt && /bin/cp /old/crt/path/chain1.crt /old/crt/path/chain.crt && /bin/cp /old/crt/path/fullchain1.crt /old/crt/path/fullchain.crt && service apache2 restart
 ```
