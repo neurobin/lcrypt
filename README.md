@@ -216,23 +216,19 @@ Even better if you include an initial random delay:
 ```
 Let's Encrypt recommends you to run the renewal at least every day. That can be achieved too:
 ```sh
-0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed.crt --chain-file /path/to/chain.crt  > /path/to/fullchain.crt 2>> /var/log/letsacme.log && service apache2 restart
+0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed.crt --chain-file /path/to/chain.crt  > /path/to/fullchain.crt 2>> /var/log/letsacme.log
 ```
 The above cron job runs the command once every day at a random time as it has to wait until perl gets its' sleep (max range 12 hours (43200s)).
 
 Instead of using the long command, it will be much more readable and easy to maintain if you put those codes into a script and call that script instead:
 ```sh
-if /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key \
+/usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key \
     --csr /path/to/domain.csr \
     --config-json /path/to/config.json \
     --cert-file /path/to/signed.crt \
     --chain-file /path/to/chain.crt \
     > /path/to/fullchain.crt \
     2>> /path/to/letsacme.log
-then
-    # echo "Successfully renewed certificate"
-    service apache2 restart
-fi
 ```
 cron:
 ```sh
