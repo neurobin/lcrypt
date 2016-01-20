@@ -12,7 +12,7 @@ while true;do
         service apache2 restart
         break
     else
-        sleep `tr -cd 0-9 </dev/urandom | head -c 1`
+        sleep `tr -cd 0-9 </dev/urandom | head -c 4`
         # sleep for max 9999 seconds, then try again
         # echo "Retry triggered"
     fi
