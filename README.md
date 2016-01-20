@@ -55,7 +55,7 @@ openssl req -new -sha256 \
 ##3: Prepare the challenge directory/s:
 **letsacme** provides two methods to prepare the challenge directory/s to complete the acme challenges. One of them is the same as [acme-tiny](https://github.com/diafygi/acme-tiny) (with `--acme-dir`), the other is quite different and simplifies things for users who doesn't have full access to their servers i.e for shared servers or shared hosting.
 
-###3.1: Non acme-tiny compatible (Config JSON) method:
+###3.1: Using configuration JSON:
 **letsacme** uses a JSON file to get the required information it needs to write challenge files on the server (Document Root). This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. An example config file looks like this:
 
 **config.json:**
@@ -82,7 +82,7 @@ openssl req -new -sha256 \
 }
 ```
 
-###3.2: Acme-tiny compatible (acme-dir) method:
+###3.2: Using acme-dir as in acme-tiny:
 This method is the same as acme-tiny. This is an abundant feature of **letsacme** as the above Config JSON method is enough for all cases. It is provided only to be compatible with acme-tiny, i.e the same method to run the acme-tiny client will work for this script too. But the output is different than the acme-tiny tool (by default). While acme-tiny prints only the cert on stdout, **letsacme** prints both cert and chain (i.e fullchain) on stdout by default. If you provide `--no-chain` then the output will match that of acme-tiny.
 
 acme-dir method requires you to create a challenge directory first:
@@ -184,7 +184,7 @@ Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a t
 ```sh
 0 0 1 * * /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed.crt --chain-file /path/to/chain.crt  > /path/to/fullchain.crt 2>> /var/log/letsacme.log && service apache2 restart
 ```
-But the above code is not recommended as it only tries for once in a month. It may not be enough to renew the certificate on just three tries as they can be timed out due to heavy load or network failures or outage. Let's employ a little retry mechanism. First we need a dedicated script for this:
+But the above code is not recommended as it only tries for once in a month. It may not be enough to renew the certificate on such few tries as they can be timed out due to heavy load or network failures or outage. Let's employ a little retry mechanism. First we need a dedicated script for this:
 ```sh
 #!/bin/sh
 while true;do
@@ -206,15 +206,38 @@ while true;do
     fi
 done
 ```
-The above script won't exit until it finally gets the certificate. It retries in a loop with a random delay in a maximum range of 9999 seconds (~2hrs 46 minutes). Now you can run the above script once every month with an acceptable safety margin. You can minimize the range if you want, for example, for 999 seconds range change the `head -c 4` part to `head -c 3`.
+The above script won't exit until it finally gets the certificate. It retries in a loop with a random delay in a maximum range of 9999 seconds (~2hrs 46 minutes). Now you can run the above script once every month with an acceptable safety margin. You can minimize the range if you want, for example, for 999 seconds range, change the `head -c 4` part to `head -c 3`.
 ```sh
 0 0 1 * * /bin/sh /path/to/script
 ```
-Though Let's Encrypt recommends you to run the renewal every day. That can be achieved too:
+Even better if you include an initial random delay:
+```sh
+0 0 1 * * /usr/local/bin/perl -le 'sleep rand 6000' && /bin/sh /path/to/script
+```
+Let's Encrypt recommends you to run the renewal at least every day. That can be achieved too:
 ```sh
 0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed.crt --chain-file /path/to/chain.crt  > /path/to/fullchain.crt 2>> /var/log/letsacme.log && service apache2 restart
 ```
 The above cron job runs the command once every day at a random time as it has to wait until perl gets its' sleep (max range 12 hours (43200s)).
+
+Instead of using the long command, it will be much more readable and easy to maintain if you put those codes into a script and call that script instead:
+```sh
+if /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key \
+    --csr /path/to/domain.csr \
+    --config-json /path/to/config.json \
+    --cert-file /path/to/signed.crt \
+    --chain-file /path/to/chain.crt \
+    > /path/to/fullchain.crt \
+    2>> /path/to/letsacme.log
+then
+    # echo "Successfully renewed certificate"
+    service apache2 restart
+fi
+```
+cron:
+```
+0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /bin/sh /path/to/script
+```
 
 #Permissions:
 
@@ -226,7 +249,7 @@ The above cron job runs the command once every day at a random time as it has to
 
 As you will want to secure yourself as much as you can and thus give as less permission as possible to the script, I suggest you create an extra user for this script and give that user write permission to the challenge directory and the cert files, and read permission to the private key (*account.key*) and the config file (*config.json*) and nothing else.
 
-#Advanced use:
+#Available options:
 
 Run it with `-h` flag to get help.
 ```sh
