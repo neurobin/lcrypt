@@ -235,7 +235,7 @@ cron:
 0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /bin/sh /path/to/script
 ```
 
-**Nnotice** that the names for the crt files are different (\*1.crt) and there's no server restart command.
+**Notice** that the names for the crt files are different (\*1.crt) and there's no server restart command.
 
 We are renewing the certificate every day but that doesn't mean we have to install it every day and restart the server along with it. We can graciously wait for 60 days and then install the certificate as the certificate (\*1.crt) is always renewed. We just need to overwrite the existing one with \*1.crt's. To do that you can set up another cron to overwrite old crt's with new ones and restart the server at a 60 day interval.
 ```sh
