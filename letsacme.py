@@ -327,7 +327,7 @@ def main(argv):
         except :
             LOGGER.error("E: Failed to parse json")
             sys.exit(1)
-    
+
     if not args.ca: 
         if args.test: args.ca = CA_TEST
         else: args.ca = DEFAULT_CA
