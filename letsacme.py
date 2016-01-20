@@ -8,7 +8,7 @@ except ImportError:
 CA_VALID = "https://acme-v01.api.letsencrypt.org"
 CA_TEST = "https://acme-staging.api.letsencrypt.org"
 DEFAULT_CA = CA_VALID
-ACME_DIR=".well-known/acme-challenge"
+CHALLENGE_DIR=".well-known/acme-challenge"
 VERSION = "0.0.1"
 VERSION_INFO="letsacme version: "+VERSION
 
@@ -24,7 +24,7 @@ def get_chain(url,log):
     return """-----BEGIN CERTIFICATE-----\n{0}\n-----END CERTIFICATE-----\n""".format(
         "\n".join(textwrap.wrap(base64.b64encode(resp.read()).decode('utf8'), 64)))
         
-def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
+def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force):
     # helper function base64 encode for jose spec
     def _b64(b):
         return base64.urlsafe_b64encode(b).decode('utf8').replace("=", "")
@@ -168,15 +168,18 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
         challenge = [c for c in json.loads(result.decode('utf8'))['challenges'] if c['type'] == "http-01"][0]
         token = re.sub(r"[^A-Za-z0-9_\-]", "_", challenge['token'])
         keyauthorization = "{0}.{1}".format(token, thumbprint)
-        doc_root = get_doc_root(conf_json,domain)
-        chlng_dir = acme_dir.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
-        make_dirs(os.path.join(doc_root, chlng_dir))  # create the challenge dir if not exists
         # paranoid check
         token = token.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
         if not (re.match("^[^"+os.path.sep+"/\\\\"+(os.path.altsep or "")+"]{4,}$",token)): # the number 4 (3 is enough) takes account for .. scenerio
             log.error("E: Invalid and possibly dangerous token.")
             sys.exit(1)
-        wellknown_path = os.path.join(doc_root, chlng_dir, token)
+        if not acme_dir: 
+            doc_root = get_doc_root(conf_json, domain)
+            chlng_dir = challenge_dir.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
+            make_dirs(os.path.join(doc_root, chlng_dir))  # create the challenge dir if not exists
+            wellknown_path = os.path.join(doc_root, chlng_dir, token)
+        else: # support acme_dir from acme_tiny
+            wellknown_path = os.path.join(acme_dir, token)
         # another paranoid check
         if os.path.isdir(wellknown_path):
             log.warning("W: "+wellknown_path+" exists.")
@@ -184,7 +187,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
             except OSError:
                 if(force):
                     try:
-                        #shutil.rmtree(wellknown_path) # This is why we have done paranoid check on token
+                        shutil.rmtree(wellknown_path) # This is why we have done paranoid check on token
                         # though it itself is inside a paranoid check which will probably never be reached
                         log.info("Removed "+wellknown_path)
                     except:
@@ -213,13 +216,14 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
                 wellknown_path, wellknown_url))
             sys.exit(1)
 
-        # notify challenge are met
+        # notify challenge is met
         code, result, crt_info = _send_signed_request(challenge['uri'], {
             "resource": "challenge",
             "keyAuthorization": keyauthorization,
         })
         if code != 202:
-            log.error("Error triggering challenge: {0} {1}".format(code, result))
+            log.error("Error triggering challenge: {0} {1}".format(code, result.read()))
+            os.remove(wellknown_path)
             sys.exit(1)
 
         # wait for challenge to be verified
@@ -230,6 +234,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
             except IOError as e:
                 log.error("Error checking challenge: {0} {1}".format(
                     e.code, json.dumps(e.read().decode('utf8'),indent=4)))
+                os.remove(wellknown_path)
                 sys.exit(1)
             if challenge_status['status'] == "pending":
                 time.sleep(2)
@@ -240,6 +245,7 @@ def get_crt(account_key, csr, conf_json, acme_dir, log, CA, force):
             else:
                 log.error("{0} challenge did not pass: {1}".format(
                     domain, challenge_status))
+                os.remove(wellknown_path)
                 sys.exit(1)
                 
     # get the new certificate
@@ -285,7 +291,8 @@ def main(argv):
     )
     parser.add_argument("--account-key", required=True, help="Path to your Let's Encrypt account private key.")
     parser.add_argument("--csr", required=True, help="Path to your certificate signing request.")
-    parser.add_argument("--config-json", required=True, help="Configuration JSON file. Must contain \"DocumentRoot\":\"/path/to/document/root\" entry for each domain.")
+    parser.add_argument("--config-json",default=None, help="Configuration JSON file. Must contain \"DocumentRoot\":\"/path/to/document/root\" entry for each domain.")
+    parser.add_argument("--acme-dir",default=None, help="Path to the .well-known/acme-challenge/ directory")
     parser.add_argument("--cert-file", default="", help="File to write the certificate to. Overwrites if file exists.")
     parser.add_argument("--chain-file", default="", help="File to write the certificate to. Overwrites if file exists.")
     parser.add_argument("--quiet", action="store_const", const=logging.ERROR, help="Suppress output except for errors.")
@@ -298,29 +305,34 @@ def main(argv):
 
     args = parser.parse_args(argv)
     LOGGER.setLevel(args.quiet or LOGGER.level)
-    
-    config_json_s = args.config_json
-    
-    # config_json can point to a file too.
-    if os.path.isfile(args.config_json):
+    if not args.config_json:
+        if not args.acme_dir:
+            parser.error("One of --config-json or --acme-dir must be given")
+            
+    # parse config_json
+    conf_json = None
+    if args.config_json:
+        config_json_s = args.config_json
+        # config_json can point to a file too.
+        if os.path.isfile(args.config_json):
+            try:
+                with open(args.config_json, "r") as f:
+                    config_json_s = f.read()
+            except:
+                LOGGER.error("E: Failed to read json file: "+args.config_json)
+                sys.exit(1)
+        # Now we are sure that config_json_s is a json string, not file
         try:
-            with open(args.config_json, "r") as f:
-                config_json_s = f.read()
-        except:
-            LOGGER.error("E: Failed to read json file: "+args.config_json)
+            conf_json = json.loads(config_json_s)
+        except :
+            LOGGER.error("E: Failed to parse json")
             sys.exit(1)
-    
-    # Now we are sure that config_json_s is a json string, not file
-    try:
-        conf_json = json.loads(config_json_s)
-    except :
-        LOGGER.error("E: Failed to parse json")
-        sys.exit(1)
     
     if not args.ca: 
         if args.test: args.ca = CA_TEST
         else: args.ca = DEFAULT_CA
-    signed_crt, chain_url = get_crt(args.account_key, args.csr, conf_json, acme_dir=ACME_DIR, log=LOGGER, CA=args.ca, force=args.force)
+    signed_crt, chain_url = get_crt(args.account_key, args.csr, conf_json, challenge_dir=CHALLENGE_DIR,
+        acme_dir=args.acme_dir, log=LOGGER, CA=args.ca, force=args.force)
     
     if(args.cert_file != ""):
         with open(args.cert_file, "w") as f:

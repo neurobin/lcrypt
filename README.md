@@ -52,8 +52,11 @@ openssl req -new -sha256 \
     -out domain.csr
 ```
 
-##3: Create a config file for letsacme script (optional):
-**letsacme** uses a JSON file to get the required information it needs to write challenge files on the server. This method is different than the [acme-tiny](https://github.com/diafygi/acme-tiny) script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that I don't intend to do anything at all with the server until I finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. An example config file looks like this:
+##3: Prepare the challenge directory/s:
+**letsacme** provides two methods to prepare the challenge directory/s to complete the acme challenges. One of them is the same as [acme-tiny](https://github.com/diafygi/acme-tiny) (with `--acme-dir`), the other is quite different and simplifies things for users who doesn't have full access to their servers i.e for shared servers or shared hosting.
+
+###3.1: Non acme-tiny compatible (Config JSON) method:
+**letsacme** uses a JSON file to get the required information it needs to write challenge files on the server (Document Root). This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. An example config file looks like this:
 
 **config.json:**
 ```json
@@ -78,6 +81,43 @@ openssl req -new -sha256 \
     }
 }
 ```
+
+###3.2: Acme-tiny compatible (acme-dir) method:
+This method is the same as acme-tiny. This is an abundant feature of **letsacme** as the above Config JSON method is enough for all cases. It is provided only to be compatible with acme-tiny, i.e the same method to run the acme-tiny client will work for this script too. But the output is different than the acme-tiny tool (by default). While acme-tiny prints only the cert on stdout, **letsacme** prints both cert and chain (i.e fullchain) on stdout by default. If you provide `--no-chain` then the output will match that of acme-tiny.
+
+acme-dir method requires you to create a challenge directory first:
+```sh
+#make some challenge folder (modify to suit your needs)
+mkdir -p /var/www/challenges/
+```
+Then you need to configure your server. 
+
+Example for nginx (copied from acme-tiny readme):
+```
+server {
+    listen 80;
+    server_name yoursite.com www.yoursite.com;
+
+    location /.well-known/acme-challenge/ {
+        alias /var/www/challenges/;
+        try_files $uri =404;
+    }
+
+    ...the rest of your config
+}
+```
+On apache2  you can set Aliases:
+```apache
+Alias /.well-known/acme-challenge /var/www/challenges
+```
+You can't use this method on shared server as most of the shared server won't allow Aliases in AccessFile. Though there's a peculiar workaround:
+
+Create a subdomain (or use an existing one) for completing acme-challenges. Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to this directory of this new subdomain. A mod_rewrite rule for apache2 would be:
+```
+RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.org/challenge/$1 [L,R=302]
+```
+
+
 ##4: Get a signed certificate:
 To get a signed certificate, all you need is the private key and the CSR.
 
@@ -94,7 +134,14 @@ Notice the `--no-chain` option; if you omitted this option then you would get a 
 ```sh
 python letsacme.py --account-key ./account.key --csr ./domain.csr --config-json ./config.json --cert-file ./signed.cert --chain-file ./chain.crt > ./fullchain.crt
 ```
+
+If you want to use `--acme-dir`, then:
+```
+python letsacme.py --account-key ./account.key --csr ./domain.csr --acme-dir /var/www/challenges/ --cert-file ./signed.crt --chain-file ./chain.crt > ./fullchain.crt
+```
+
 This will create three files: **signed.crt** (the certificate), **chain.crt** (chain), **fullchain.crt** (fullchain).
+
 
 #5: Install the certificate:
 This is an scope beyond the script. You will have to install the certificate manually and setup the server as it requires.
@@ -120,7 +167,7 @@ server {
 }
 ```
 An example for apache2:
-```sh
+```apache
 <VirtualHost *:443>     
         ...other configurations
         SSLEngine on
@@ -140,7 +187,7 @@ Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a t
 
 #Permissions:
 
-1. **Challenge directory:** The script needs **permission to write** files to the challenge directory which is in the document root of each domain. It simply means that the script requires permission to write to your document root. If that seems to be a security issue then you can work it around by creating the challenge directories first. If the challenge directory already exists it will only need permission to write to the challenge directory not the document root.
+1. **Challenge directory:** The script needs **permission to write** files to the challenge directory which is in the document root of each domain (for the Cnfig JSON). It simply means that the script requires permission to write to your document root. If that seems to be a security issue then you can work it around by creating the challenge directories first. If the challenge directory already exists it will only need permission to write to the challenge directory not the document root. The acme-dir method needs **write permission** to the directory specified by `--acme-dir`.
 2. **Account key:** Save the *account.key* file to a secure location. **letsacme** only needs **read permission** to it, so you can revoke write permission from it.
 3. **Domain key:** Save the *domain.key* file to a secure location. **letsacme** doesn't use this file. So **no permission** should be allowed for this file.
 4. **Cert files:** Save the *signed.crt*, *chain.crt* and *fullchain.crt* in a secure location. **letsacme** needs **write permission** for these files as it will update these files in a timely basis.
@@ -165,6 +212,7 @@ It will show you all the available options that are supported by the script. The
                         Configuration JSON file. Must contain
                         "DocumentRoot":"/path/to/document/root" entry for each
                         domain.
+  --acme-dir ACME_DIR   Path to the .well-known/acme-challenge/ directory
   --cert-file CERT_FILE
                         File to write the certificate to. Overwrites if file
                         exists.
