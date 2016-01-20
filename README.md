@@ -184,7 +184,7 @@ Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a t
 ```sh
 0 0 1 * * /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed.crt --chain-file /path/to/chain.crt  > /path/to/fullchain.crt 2>> /var/log/letsacme.log && service apache2 restart
 ```
-But the above code is not recommended as it only tries for once in a month, that's thrice in 90 days. It may not be enough to renew the certificate on just three tries as they can be timed out due to heavy load or network failures or outage. Let's employ a little retry mechanism. First we need a dedicated script for this:
+But the above code is not recommended as it only tries for once in a month. It may not be enough to renew the certificate on just three tries as they can be timed out due to heavy load or network failures or outage. Let's employ a little retry mechanism. First we need a dedicated script for this:
 ```sh
 #!/bin/sh
 while true;do
