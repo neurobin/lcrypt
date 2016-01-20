@@ -8,7 +8,7 @@ The **letsacme** script automates the process of getting a signed TLS/SSL certif
 
 #How to use:
 
-If you just want to renew an existing certificate, you will only have to do Steps 4 and 6. 
+If you just want to renew an existing certificate, you will only have to do Steps 4~6. 
 
 **For shared servers/hosting:** Get only the certificate (step 1~4) by running the script on your server and then install the certificate with cpanel or equivalent control panels.
 
