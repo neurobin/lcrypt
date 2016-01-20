@@ -180,7 +180,7 @@ An example for apache2:
 **For shared servers, it is possible to install the certificate with cpanel or equivalent control panels (if it's supported).**
 
 #6: Setup an auto-renew cron job:
-Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a timely manner. You can setup a cron job to do this for you. A monthly cron job:
+Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a timely manner. You can setup a cron job to do this for you. An example monthly cron job:
 ```sh
 0 0 1 * * python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed.crt --chain-file /path/to/chain.crt  > /path/to/fullchain.crt 2>> /var/log/letsacme.log && service apache2 restart
 ```
