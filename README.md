@@ -185,7 +185,7 @@ Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a t
 0 0 1 * * /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed.crt --chain-file /path/to/chain.crt  > /path/to/fullchain.crt 2>> /var/log/letsacme.log && service apache2 restart
 ```
 But the above code is not recommended as it only tries for once in a month, that's thrice in 90 days. It may not be enough to renew the certificate on just three tries as they can be timed out due to heavy load or network failures or outage. Let's employ a little retry mechanism. First we need a dedicated script for this:
-```
+```sh
 #!/bin/sh
 while true;do
     if /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key \
@@ -207,11 +207,11 @@ while true;do
 done
 ```
 The above script won't exit until it finally gets the certificate. It retries in a loop with a random delay in a maximum range of 9999 seconds (~2hrs 46 minutes). Now you can run the above script once every month with an acceptable safety margin. You can minimize the range if you want, for example, for 999 seconds range change the `head -c 4` part to `head -c 3`.
-```
-0 0 1 * * sh /path/to/script
+```sh
+0 0 1 * * /bin/sh /path/to/script
 ```
 Though Let's Encrypt recommends you to run the renewal every day. That can be achieved too:
-```
+```sh
 0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed.crt --chain-file /path/to/chain.crt  > /path/to/fullchain.crt 2>> /var/log/letsacme.log && service apache2 restart
 ```
 The above cron job runs the command once every day at a random time as it has to wait until perl gets its' sleep (max range 12 hours (43200s)).
