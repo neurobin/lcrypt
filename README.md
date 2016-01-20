@@ -22,7 +22,7 @@ The following command creates a 4096bit RSA (private) key:
 openssl genrsa 4096 > account.key
 ```
 
-**Or use an existing Let's Encrypt key (privkey.pem)**
+**Or use an existing Let's Encrypt key (privkey.pem from official Let's Encrypt client)**
 
 **Note:** **letsacme** is using the [PEM](https://tools.ietf.org/html/rfc1421) key format.
 
