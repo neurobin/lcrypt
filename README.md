@@ -93,7 +93,7 @@ mkdir -p /var/www/challenges/
 Then you need to configure your server. 
 
 Example for nginx (copied from acme-tiny readme):
-```
+```nginx
 server {
     listen 80;
     server_name yoursite.com www.yoursite.com;
@@ -113,7 +113,7 @@ Alias /.well-known/acme-challenge /var/www/challenges
 You can't use this method on shared server as most of the shared server won't allow Aliases in AccessFile. Though there's a peculiar workaround:
 
 Create a subdomain (or use an existing one) for completing acme-challenges. Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to this directory of this new subdomain. A mod_rewrite rule for apache2 would be:
-```
+```apache
 RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.org/challenge/$1 [L,R=302]
 ```
 
@@ -136,7 +136,7 @@ python letsacme.py --account-key ./account.key --csr ./domain.csr --config-json 
 ```
 
 If you want to use `--acme-dir`, then:
-```
+```sh
 python letsacme.py --account-key ./account.key --csr ./domain.csr --acme-dir /var/www/challenges/ --cert-file ./signed.crt --chain-file ./chain.crt > ./fullchain.crt
 ```
 
@@ -235,7 +235,7 @@ then
 fi
 ```
 cron:
-```
+```sh
 0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /bin/sh /path/to/script
 ```
 
