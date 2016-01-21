@@ -58,7 +58,9 @@ openssl req -new -sha256 \
 **Whatever method you use, note that the challenge directory needs to be accessible with normal http on port 80.**
 
 ###3.1: Using configuration JSON:
-**letsacme** uses a JSON file to get the required information it needs to write challenge files on the server. This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. An example config file looks like this:
+**letsacme** uses a JSON file to get the required information it needs to write challenge files on the server. This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.org/.well-known/acme-challenge/.* to the URL of that directory.
+
+An example config file looks like this:
 
 **config.json:**
 ```json
@@ -112,12 +114,30 @@ On apache2  you can set Aliases:
 ```apache
 Alias /.well-known/acme-challenge /var/www/challenges
 ```
-You can't use this method on shared server as most of the shared server won't allow Aliases in AccessFile. Though there's a peculiar workaround:
+You can't use this method on shared server as most of the shared server won't allow Aliases in AccessFile.
 
-Create a subdomain (or use an existing one) for completing acme-challenges. Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to this directory of this new subdomain. A mod_rewrite rule for apache2 would be:
+###3.3 What will you do if the challenge directory/document root doesn't allow normal http on port 80:
+**The challenge directory must be accessible with normal http on port 80.**
+
+But this may not be possible all the time. So, what will you do?
+
+And also there's another scenario: if it happens that your site is behind a firewall or your WordPress site or site with Laravel or other tools and framework is preventing direct access to that challenge directory, what will you do?
+
+In the above cases most commonly you will be rendered with an error message like this:
+
+>Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.org/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
+
+This means what it **exactly means**, it can't access the challenge files on the URL, it is either being redirected in a weird way or blocked.
+
+You can however work this around with an effective but peculiar way:
+
+Create a subdomain (or use an existing one with no additional framework, just plain old http site). Check if the subdomain is accessible (by creating a simple html file inside). Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to all of the domains you want certificate for, to this directory of this new subdomain. A mod_rewrite rule for apache2 would be:
 ```apache
 RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.org/challenge/$1 [L,R=302]
 ```
+And provide the challenge directory (the `challenge` directory path inside the document root) to **letsacme** as an *acme-dir* (not as document root) with `--acme-dir` option.
+
+Even though it's peculiar and a bit tedious, it is supposed to work with all the situations as long as the subdomain is properly active. So if you want to move to this method instead of all the other methods available, I wouldn't stop you.
 
 
 ##4: Get a signed certificate:
