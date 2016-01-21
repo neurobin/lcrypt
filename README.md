@@ -57,6 +57,12 @@ openssl req -new -sha256 \
 
 **Whatever method you use, note that the challenge directory needs to be accessible with normal http on port 80.**
 
+Otherwise, you may get an **error message** like this one:
+```
+Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.org/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
+```
+See section 3.3 on how you can work this around.
+
 ###3.1: Using configuration JSON:
 **letsacme** uses a JSON file to get the required information it needs to write challenge files on the server. This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.org/.well-known/acme-challenge/.* to the URL of that directory.
 
