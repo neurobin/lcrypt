@@ -206,15 +206,15 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
             
         # check that the file is in place
         wellknown_url = "http://{0}/.well-known/acme-challenge/{1}".format(domain, token)
-        try:
-            resp = urlopen(wellknown_url)
-            resp_data = resp.read().decode('utf8').strip()
-            assert resp_data == keyauthorization
-        except (IOError, AssertionError):
-            os.remove(wellknown_path)
-            log.error("Wrote file to {0}, but couldn't download {1}".format(
-                wellknown_path, wellknown_url))
-            sys.exit(1)
+        #~ try:
+            #~ resp = urlopen(wellknown_url)
+            #~ resp_data = resp.read().decode('utf8').strip()
+            #~ assert resp_data == keyauthorization
+        #~ except (IOError, AssertionError):
+            #~ os.remove(wellknown_path)
+            #~ log.error("Wrote file to {0}, but couldn't download {1}".format(
+                #~ wellknown_path, wellknown_url))
+            #~ sys.exit(1)
 
         # notify challenge is met
         code, result, crt_info = _send_signed_request(challenge['uri'], {
@@ -223,7 +223,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
         })
         if code != 202:
             log.error("Error triggering challenge: {0} {1}".format(code, result.read()))
-            os.remove(wellknown_path)
+            #os.remove(wellknown_path)
             sys.exit(1)
 
         # wait for challenge to be verified
@@ -234,18 +234,18 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
             except IOError as e:
                 log.error("Error checking challenge: {0} {1}".format(
                     e.code, json.dumps(e.read().decode('utf8'),indent=4)))
-                os.remove(wellknown_path)
+                #os.remove(wellknown_path)
                 sys.exit(1)
             if challenge_status['status'] == "pending":
                 time.sleep(2)
             elif challenge_status['status'] == "valid":
                 log.info("{0} verified!".format(domain))
-                os.remove(wellknown_path)
+                #os.remove(wellknown_path)
                 break
             else:
                 log.error("{0} challenge did not pass: {1}".format(
                     domain, challenge_status))
-                os.remove(wellknown_path)
+                #os.remove(wellknown_path)
                 sys.exit(1)
                 
     # get the new certificate
@@ -349,3 +349,4 @@ def main(argv):
 
 if __name__ == "__main__": # pragma: no cover
     main(sys.argv[1:])
+
