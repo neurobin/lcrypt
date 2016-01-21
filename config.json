@@ -1,20 +1,36 @@
 {
 "example.org": {
-    "DocumentRoot":"/var/www/public_html"
+    "DocumentRoot":"/var/www/public_html",
+    "_comment":"Global defintion AcmeDir won't be used as DocumentRoot is defined"
     },
 "subdomain1.example.org": {
-    "DocumentRoot":"/var/www/subdomain1"
+    "DocumentRoot":"/var/www/subdomain1",
+    "_comment":"Local defintion of DocumentRoot"
     },
 "www.subdomain2.example.org": {
-    "DocumentRoot":"/var/www/subdomain2"
+    "AcmeDir":"/var/www/subdomain2",
+    "_comment":"Local defintion of AcmeDir"
     },
 "subdomain3.example.org": {
-    "DocumentRoot":"/var/www/subdomain3"
+    "AcmeDir":"/var/www/subdomain3"
     },
 "subdomain4.example.org": {
-    "DocumentRoot":"/var/www/subdomain4"
+    "AcmeDir":"/var/www/subdomain4"
     },
 "www.subdomain5.example.org": {
-    "DocumentRoot":"/var/www/subdomain5"
-    }
+    "AcmeDir":"/var/www/subdomain5"
+    },
+"AccountKey":"account.key",
+"CSR": "domain.csr",
+"AcmeDir":"/var/www/html",
+"DocumentRoot":"/var/www/public_html",
+"_comment":"Global definition of DocumentRoot and AcmeDir",
+"CertFile":"domain.crt",
+"ChainFile":"chain.crt",
+"CA":"",
+"__comment":"For CA default value will be used. please don't change this option. Use the Test property if you want the staging api.",
+"NoChain":"False",
+"NoCert":"False",
+"Test":"False",
+"Force":"False"
 }

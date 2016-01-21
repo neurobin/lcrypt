@@ -1,6 +1,6 @@
 The **letsacme** script automates the process of getting a signed TLS/SSL certificate from Let's Encrypt using the ACME protocol. It will need to be run on your server and have **access to your private account key**. It gets both the certificate and the chain (CABUNDLE) and prints them on stdout unless specified otherwise.
 
-**PLEASE READ THE SOURCE CODE (~350 LINE)! YOU MUST TRUST IT WITH YOUR PRIVATE KEYS!**
+**PLEASE READ THE SOURCE CODE (~400 LINE)! YOU MUST TRUST IT WITH YOUR PRIVATE KEYS!**
 
 #Dependencies:
 1. Python
@@ -64,9 +64,11 @@ Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-
 See section 3.3 on how you can work this around.
 
 ###3.1: Using configuration JSON:
-**letsacme** uses a JSON file to get the required information it needs to write challenge files on the server. This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.org/.well-known/acme-challenge/.* to the URL of that directory.
+**letsacme** uses a JSON file to get the required information it needs. This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not have to do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root (or path to acme challenge directory) of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.org/.well-known/acme-challenge/.* to the URL of that directory (section 3.3).
 
-An example config file looks like this:
+**For sites using Wordpress or framework like Laravel, the use of document root as the destination for challenge directory may or may not work. Use the method described in section 3.3 (or section 3.2 if you have full access to the server)**
+
+An example config file should look like this:
 
 **config.json:**
 ```json
@@ -92,10 +94,12 @@ An example config file looks like this:
 }
 ```
 
-###3.2: Using acme-dir as in acme-tiny:
+###3.2: Using acme-dir as in acme-tiny (requires you to configure the server):
 This method is the same as acme-tiny. This is an abundant feature of **letsacme** as the above Config JSON method is enough for all cases. It is provided only to be compatible with acme-tiny, i.e the same method to run the acme-tiny client will work for this script too. But the output is different than the acme-tiny tool (by default). While acme-tiny prints only the cert on stdout, **letsacme** prints both cert and chain (i.e fullchain) on stdout by default. If you provide `--no-chain` then the output will match that of acme-tiny.
 
-acme-dir method requires you to create a challenge directory first:
+You can define the *AcmeDir* inside the JSON configuration file too.
+
+acme-dir method requires you to create a challenge directory first (not required any more, it will create it if it doesn't exist and has the permission to do so):
 ```sh
 #make some challenge folder (modify to suit your needs)
 mkdir -p /var/www/challenges/
@@ -120,7 +124,7 @@ On apache2  you can set Aliases:
 ```apache
 Alias /.well-known/acme-challenge /var/www/challenges
 ```
-You can't use this method on shared server as most of the shared server won't allow Aliases in AccessFile.
+**You can't use this method on shared server** as most of the shared server won't allow Aliases in AccessFile. For shared server/hosting, you should either use your site's document root as the destination for acme-challenges, or redirect the challenges to a different directory which has a valid and active URL and allows http file download without hindrance. Follow the following step (section 3.3) to do that.
 
 ###3.3 What will you do if the challenge directory/document root doesn't allow normal http on port 80:
 **The challenge directory must be accessible with normal http on port 80.**
@@ -129,22 +133,51 @@ But this may not be possible all the time. So, what will you do?
 
 And also there's another scenario: if it happens that your site is behind a firewall or your WordPress site or site with Laravel or other tools and framework is preventing direct access to that challenge directory, what will you do?
 
-In the above cases most commonly you will be rendered with an error message like this:
+In the above cases most commonly you will be encountered with an error message like this:
 
 >Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.org/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
 
-This means what it **exactly means**, it can't access the challenge files on the URL, it is either being redirected in a weird way or blocked.
+This means what it **exactly means**, it can't access the challenge files on the URL. It is either being redirected in a weird way or being blocked.
 
 You can however work this around with an effective but peculiar way:
 
-Create a subdomain (or use an existing one with no additional framework, just plain old http site). Check if the subdomain is accessible (by creating a simple html file inside). Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to all of the domains you want certificate for, to this directory of this new subdomain. A mod_rewrite rule for apache2 would be:
+Create a subdomain (or use an existing one with no additional framework, just plain old http site). Check if the subdomain is accessible (by creating a simple html file inside). Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to all of the domains you want certificate for to this directory of this new subdomain. A mod_rewrite rule for apache2 would be:
 ```apache
-RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.org/challenge/$1 [L,R=302]
+RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.org/challenge/$1
 ```
-And provide the challenge directory (the `challenge` directory path inside the document root) to **letsacme** as an *acme-dir* (not as document root) with `--acme-dir` option.
+And provide the challenge directory (the `challenge` directory path inside the document root) to **letsacme** as an *acme-dir* (not as document root) with `--acme-dir` option or define it inside the config.json file:
+```json
+{
+"AcmeDir":"/var/www/subdomain/challenge"
+}
+```
+If you are not sure of how the json file should be layed out, look inside the *config.json* file. It's a complete configuration file. You can pass all the options with the configuration json file (except `--config-json` of course, and `--quiet`). When using the `"AcmeDir"` property, don't define document root for individual domains, it will force it to use the document root instead, and also, don't pass AcmeDir as document root, they are **not** the same.
 
-Even though it's peculiar and a bit tedious, it is supposed to work with all the situations as long as the subdomain is properly active. So if you want to move to this method instead of all the other methods available, I wouldn't stop you.
+Also, you can pass separate *AcmeDir* for each of the domain too:
+```json
+{
+"example.org": {
+    "AcmeDir":"/var/www/subdomain/challenge1"
+    },
+"subdomain1.example.org": {
+    "AcmeDir":"/var/www/subdomain/challenge2"
+    },
+"subdomain2.example.org": {
+    "AcmeDir":"/var/www/subdomain/challenge3"
+    },
+"subdomain3.example.org": {
+    "AcmeDir":"/var/www/subdomain/challenge4"
+    },
+"AccountKey":"./account.key",
+"CSR": "./domain.csr"
+}
+```
 
+**Even though it's peculiar and a bit tedious, it is supposed to work with all the situations** as long as the subdomain is properly active. So if you want to move to this method instead of all the other methods available, that wouldn't be a bad idea at all.
+
+**Note:** You don't need different definition of acme-dir or document-root for www and non-www versions of your site. The script searches for www version if non-www is not defined and vice versa. If both is defined, they will be taken as they are passed (careful).
+
+**See the advanced section for more details.**
 
 ##4: Get a signed certificate:
 To get a signed certificate, all you need is the private key and the CSR.
@@ -320,3 +353,54 @@ It will show you all the available options that are supported by the script. The
 #Testing:
 
 For testing use the `--test` flag. It will use the staging api and get a test certificate with test chain. Don't test without passing `--test` flag. There's a very low rate limit on how many requests you can send for trusted certificates. On the other hand, the rate limit for the staging api is much larger.
+
+#Advanced info about the configuration file:
+
+1. Arguments passed in the command line takes priority over properties/options defined in the JSON file.
+2. DocumentRoot and AcmeDir can be defined both globally and locally (per domain basis). If any local definition isn't found, then global definition will be searched for.
+3. AcmeDir takes priority over DocumentRoot, and local definition takes priority over global definition.
+4. The properties (keys/optons) are case sensitive.
+5. **True** **False** values are case insensitive.
+6. If the challenge directory (AcmeDir or DocumentRoot) for non-www site isn't defined, then a definition for it's www version will be searched for and vice versa. If both are defined, they are taken as is.
+
+A full fledged JSON configuration file:
+```
+{
+"example.org": {
+    "DocumentRoot":"/var/www/public_html",
+    "_comment":"Global defintion AcmeDir won't be used as DocumentRoot is defined"
+    },
+"subdomain1.example.org": {
+    "DocumentRoot":"/var/www/subdomain1",
+    "_comment":"Local defintion of DocumentRoot"
+    },
+"www.subdomain2.example.org": {
+    "AcmeDir":"/var/www/subdomain2",
+    "_comment":"Local defintion of AcmeDir"
+    },
+"subdomain3.example.org": {
+    "AcmeDir":"/var/www/subdomain3"
+    },
+"subdomain4.example.org": {
+    "AcmeDir":"/var/www/subdomain4"
+    },
+"www.subdomain5.example.org": {
+    "AcmeDir":"/var/www/subdomain5"
+    },
+"AccountKey":"account.key",
+"CSR": "domain.csr",
+"AcmeDir":"/var/www/html",
+"DocumentRoot":"/var/www/public_html",
+"_comment":"Global definition of DocumentRoot and AcmeDir",
+"CertFile":"domain.crt",
+"ChainFile":"chain.crt",
+"CA":"",
+"__comment":"For CA default value will be used. please don't change this option. Use the Test property if you want the staging api.",
+"NoChain":"False",
+"NoCert":"False",
+"Test":"False",
+"Force":"False"
+}
+```
+
+
