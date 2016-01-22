@@ -15,7 +15,7 @@ If you just want to renew an existing certificate, you will only have to do Step
 ## 1: Create a Let's Encrypt account private key (if you haven't already):
 You must have a public key registered with Let's Encrypt and use the corresponding private key to sign your requests. Thus you first need to create a key, which **letsacme** will use to register an account for you and sign all the following requests.
 
-If you don't understand what the account is for, then this script likely isn't for you. Please, use the official Let's Encrypt client. Or you can read the [howitworks](https://letsencrypt.org/howitworks/technology/) page under the section: **Certificate Issuance and Revocation** to gain a little insight on how certificate issuance works.
+If you don't understand what the account is for, then this script likely isn't for you. Please, use the official Let's Encrypt client. Or you can read the [howitworks](https://letsencrypt.com/howitworks/technology/) page under the section: **Certificate Issuance and Revocation** to gain a little insight on how certificate issuance works.
 
 The following command creates a 4096bit RSA (private) key:
 ```sh
@@ -24,7 +24,7 @@ openssl genrsa 4096 > account.key
 
 **Or use an existing Let's Encrypt key (privkey.pem from official Let's Encrypt client)**
 
-**Note:** **letsacme** is using the [PEM](https://tools.ietf.org/html/rfc1421) key format.
+**Note:** **letsacme** is using the [PEM](https://tools.ietf.com/html/rfc1421) key format.
 
 ##2: Create a certificate signing request (CSR) for your domains.
 
@@ -53,12 +53,12 @@ openssl req -new -sha256 -key domain.key -subj "/C=US/ST=CA/O=MY Org/CN=example.
 
 Otherwise, you may get an **error message** like this one:
 ```sh
-Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.org/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
+Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.com/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
 ```
 See section 3.3 on how you can work this around.
 
 ###3.1: Using configuration JSON:
-**letsacme** uses a JSON file to get the required information it needs. This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not have to do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root (or path to acme challenge directory) of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.org/.well-known/acme-challenge/.* to the URL of that directory (section 3.3).
+**letsacme** uses a JSON file to get the required information it needs. This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not have to do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root (or path to acme challenge directory) of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.com/.well-known/acme-challenge/.* to the URL of that directory (section 3.3).
 
 **For sites using Wordpress or framework like Laravel, the use of document root as the destination for challenge directory may or may not work. Use the method described in section 3.3 (or section 3.2 if you have full access to the server)**
 
@@ -67,22 +67,22 @@ An example config file should look like this:
 **config.json:**
 ```json
 {
-"example.org": {
+"example.com": {
     "DocumentRoot":"/var/www/public_html"
     },
-"subdomain1.example.org": {
+"subdomain1.example.com": {
     "DocumentRoot":"/var/www/subdomain1"
     },
-"subdomain2.example.org": {
+"subdomain2.example.com": {
     "DocumentRoot":"/var/www/subdomain2"
     },
-"subdomain3.example.org": {
+"subdomain3.example.com": {
     "DocumentRoot":"/var/www/subdomain3"
     },
-"subdomain4.example.org": {
+"subdomain4.example.com": {
     "DocumentRoot":"/var/www/subdomain4"
     },
-"subdomain5.example.org": {
+"subdomain5.example.com": {
     "DocumentRoot":"/var/www/subdomain5"
     }
 }
@@ -129,17 +129,17 @@ And also there's another scenario: if it happens that your site is behind a fire
 
 In the above cases most commonly you will be encountered with an error message like this:
 
->Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.org/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
+>Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.com/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
 
 This means what it **exactly means**, it can't access the challenge files on the URL. It is either being redirected in a weird way or being blocked.
 
 You can however work this around with an effective but peculiar way:
 
-The basic logic is to redirect all requests to http://example.org/.well-know/acme-challenge/ to another address which permits http access on port 80 and you have access to it's document root (because the script needs to create challenge files there) through terminal.
+The basic logic is to redirect all requests to http://example.com/.well-know/acme-challenge/ to another address which permits http access on port 80 and you have access to it's document root (because the script needs to create challenge files there) through terminal.
 
 Create a subdomain (or use an existing one with no additional framework, just plain old http site). Check if the subdomain is accessible (by creating a simple html file inside). Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to all of the domains you want certificate for to this directory of this new subdomain. A mod_rewrite rule for apache2 would be (add it in the .htaccess file or whatever AccessFile you have):
 ```apache
-RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.org/challenge/$1
+RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.com/challenge/$1
 ```
 And provide the challenge directory (the `challenge` directory path inside the document root) to **letsacme** as an *acme-dir* (not as document root) with `--acme-dir` option or define it inside the config.json file:
 ```json
@@ -154,16 +154,16 @@ If you are not sure of how the json file should be layed out, look inside the *c
 Also, you can pass separate *AcmeDir* for each of the domain too:
 ```json
 {
-"example.org": {
+"example.com": {
     "AcmeDir":"/var/www/subdomain/challenge1"
     },
-"subdomain1.example.org": {
+"subdomain1.example.com": {
     "AcmeDir":"/var/www/subdomain/challenge2"
     },
-"subdomain2.example.org": {
+"subdomain2.example.com": {
     "AcmeDir":"/var/www/subdomain/challenge3"
     },
-"subdomain3.example.org": {
+"subdomain3.example.com": {
     "AcmeDir":"/var/www/subdomain/challenge4"
     },
 "AccountKey":"./account.key",
@@ -364,25 +364,25 @@ For testing use the `--test` flag. It will use the staging api and get a test ce
 A full fledged JSON configuration file:
 ```json
 {
-"example.org": {
+"example.com": {
     "DocumentRoot":"/var/www/public_html",
     "_comment":"Global defintion AcmeDir won't be used as DocumentRoot is defined"
     },
-"subdomain1.example.org": {
+"subdomain1.example.com": {
     "DocumentRoot":"/var/www/subdomain1",
     "_comment":"Local defintion of DocumentRoot"
     },
-"www.subdomain2.example.org": {
+"www.subdomain2.example.com": {
     "AcmeDir":"/var/www/subdomain2",
     "_comment":"Local defintion of AcmeDir"
     },
-"subdomain3.example.org": {
+"subdomain3.example.com": {
     "AcmeDir":"/var/www/subdomain3"
     },
-"subdomain4.example.org": {
+"subdomain4.example.com": {
     "AcmeDir":"/var/www/subdomain4"
     },
-"www.subdomain5.example.org": {
+"www.subdomain5.example.com": {
     "AcmeDir":"/var/www/subdomain5"
     },
 "AccountKey":"account.key",
