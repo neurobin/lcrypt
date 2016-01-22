@@ -178,7 +178,7 @@ Also, you can pass separate *AcmeDir* for each of the domain too:
 **See the advanced section for more details.**
 
 ##4: Get a signed certificate:
-To get a signed certificate, all you need is the private key and the CSR.
+To get a signed certificate, all you need is the private key, the CSR, the JSON configuration file (optional) and a single line of python command (one of the commands mentioned below, choose according to your requirements).
 
 If you created the *config.json* file in previous step:
 ```sh
