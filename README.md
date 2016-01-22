@@ -52,7 +52,7 @@ openssl req -new -sha256 -key domain.key -subj "/C=US/ST=CA/O=MY Org/CN=example.
 **Whatever method you use, note that the challenge directory needs to be accessible with normal http on port 80.**
 
 Otherwise, you may get an **error message** like this one:
-```
+```sh
 Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.org/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
 ```
 See section 3.3 on how you can work this around.
@@ -178,7 +178,7 @@ Also, you can pass separate *AcmeDir* for each of the domain too:
 **See the advanced section for more details.**
 
 ##4: Get a signed certificate:
-To get a signed certificate, all you need is the private key, the CSR, the JSON configuration file (optional) and a single line of python command (one of the commands mentioned below, choose according to your requirements).
+To get a signed certificate, all you need is the private key, the CSR, the JSON configuration file (optional) and a single line of python command (**one of the commands mentioned below**, choose according to your requirements).
 
 If you created the *config.json* file in previous step:
 ```sh
