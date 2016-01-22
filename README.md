@@ -89,7 +89,7 @@ An example config file should look like this:
 ```
 
 ###3.2: Using acme-dir as in acme-tiny (requires you to configure the server):
-This method is the same as acme-tiny. This is an abundant feature of **letsacme** as the above Config JSON method is enough for all cases. It is provided only to be compatible with acme-tiny, i.e the same method to run the acme-tiny client will work for this script too. But the output is different than the acme-tiny tool (by default). While acme-tiny prints only the cert on stdout, **letsacme** prints both cert and chain (i.e fullchain) on stdout by default. If you provide `--no-chain` then the output will match that of acme-tiny.
+This method is the same as acme-tiny. This is an abundant feature of **letsacme** as you can pass all these options using the JSON configuration file. It is provided only to be compatible with acme-tiny, i.e the same method to run the acme-tiny client will work for this script too. But the output is different than the acme-tiny tool (by default). While acme-tiny prints only the cert on stdout, **letsacme** prints both cert and chain (i.e fullchain) on stdout by default. If you provide `--no-chain` then the output will match that of acme-tiny.
 
 You can define the *AcmeDir* inside the JSON configuration file too.
 
