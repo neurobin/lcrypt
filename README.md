@@ -43,13 +43,7 @@ openssl req -new -sha256 -key domain.key -subj "/CN=example.com" > domain.csr
 ```
 For multi-domain:
 ```sh
-openssl req -new -sha256 \
-    -key domain.key \
-    -subj "/C=US/ST=CA/O=MY Org/CN=example.com" \
-    -reqexts SAN \
-    -config <(cat /etc/ssl/openssl.cnf \
-        <(printf "[SAN]\nsubjectAltName=DNS:example.com,DNS:www.example.com,DNS:subdomain.example.com,DNS:www.subdomain.com")) \
-    -out domain.csr
+openssl req -new -sha256 -key domain.key -subj "/C=US/ST=CA/O=MY Org/CN=example.com" -reqexts SAN -config <(cat /etc/ssl/openssl.cnf  <(printf "[SAN]\nsubjectAltName=DNS:example.com,DNS:www.example.com,DNS:subdomain.example.com,DNS:www.subdomain.com")) -out domain.csr
 ```
 
 ##3: Prepare the challenge directory/s:
@@ -141,7 +135,9 @@ This means what it **exactly means**, it can't access the challenge files on the
 
 You can however work this around with an effective but peculiar way:
 
-Create a subdomain (or use an existing one with no additional framework, just plain old http site). Check if the subdomain is accessible (by creating a simple html file inside). Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to all of the domains you want certificate for to this directory of this new subdomain. A mod_rewrite rule for apache2 would be:
+The basic logic is to redirect all requests to http://example.org/.well-know/acme-challenge/ to another address which permits http access on port 80 and you have access to it's document root (because the script needs to create challenge files there) through terminal.
+
+Create a subdomain (or use an existing one with no additional framework, just plain old http site). Check if the subdomain is accessible (by creating a simple html file inside). Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to all of the domains you want certificate for to this directory of this new subdomain. A mod_rewrite rule for apache2 would be (add it in the .htaccess file or whatever AccessFile you have):
 ```apache
 RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.org/challenge/$1
 ```
@@ -151,6 +147,8 @@ And provide the challenge directory (the `challenge` directory path inside the d
 "AcmeDir":"/var/www/subdomain/challenge"
 }
 ```
+**You can of course enable https for this subdomain too.** You can use the same redirect rule for that.
+
 If you are not sure of how the json file should be layed out, look inside the *config.json* file. It's a complete configuration file. You can pass all the options with the configuration json file (except `--config-json` of course, and `--quiet`). When using the `"AcmeDir"` property, don't define document root for individual domains, it will force it to use the document root instead, and also, don't pass AcmeDir as document root, they are **not** the same.
 
 Also, you can pass separate *AcmeDir* for each of the domain too:
@@ -364,7 +362,7 @@ For testing use the `--test` flag. It will use the staging api and get a test ce
 6. If the challenge directory (AcmeDir or DocumentRoot) for non-www site isn't defined, then a definition for it's www version will be searched for and vice versa. If both are defined, they are taken as is.
 
 A full fledged JSON configuration file:
-```
+```json
 {
 "example.org": {
     "DocumentRoot":"/var/www/public_html",
