@@ -57,8 +57,10 @@ Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-
 ```
 See section 3.3 on how you can work this around.
 
-###3.1: Using configuration JSON:
-**letsacme** uses a JSON file to get the required information it needs. This method is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not have to do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root (or path to acme challenge directory) of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.com/.well-known/acme-challenge/.* to the URL of that directory (section 3.3).
+###3.1: Using Document Root of each of your sites:
+**letsacme** uses a JSON file to get the required information it needs. 
+
+This method (using document root) is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not have to do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root (or path to acme challenge directory) of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.com/.well-known/acme-challenge/.* to the URL of that directory (section 3.3).
 
 **For sites using Wordpress or framework like Laravel, the use of document root as the destination for challenge directory may or may not work. Use the method described in section 3.3 (or section 3.2 if you have full access to the server)**
 
