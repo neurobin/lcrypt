@@ -238,7 +238,7 @@ An example for apache2:
 </VirtualHost>
 ```
 
-**For shared servers, it is possible to install the certificate with cpanel or equivalent control panels (if it's supported).**
+**For shared servers, it is possible to install the certificate with cpanel or equivalent control panels (if it's supported).** [See this link for how to install it with cpanel](https://neurobin.org/docs/web/installing-tls-ssl-certificate-using-cpanel/)
 
 #6: Setup an auto-renew cron job:
 Let's Encrypt certificate only lasts for 90 days. So you need to renew it in a timely manner. You can setup a cron job to do this for you. An example monthly cron job:
