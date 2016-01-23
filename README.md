@@ -135,7 +135,7 @@ This means what it **exactly means**, it can't access the challenge files on the
 
 You can however work this around with an effective but peculiar way:
 
-The basic logic is to redirect all requests to http://example.com/.well-know/acme-challenge/ to another address which permits http access on port 80 and you have access to it's document root (because the script needs to create challenge files there) through terminal.
+> The basic logic is to redirect all requests to http://example.com/.well-know/acme-challenge/ to another address which permits http access on port 80 and you have access to it's document root (because the script needs to create challenge files there) through terminal.
 
 Create a subdomain (or use an existing one with no additional framework, just plain old http site). Check if the subdomain is accessible (by creating a simple html file inside). Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to all of the domains you want certificate for to this directory of this new subdomain. A mod_rewrite rule for apache2 would be (add it in the .htaccess file or whatever AccessFile you have):
 ```apache
