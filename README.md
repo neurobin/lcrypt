@@ -13,7 +13,7 @@ The **letsacme** script automates the process of getting a signed TLS/SSL certif
 
 If you just want to renew an existing certificate, you will only have to do Steps 4~6. 
 
-**For shared servers/hosting:** Get only the certificate (step 1~4) by running the script on your server and then install the certificate with cpanel or equivalent control panels.
+**For shared servers/hosting:** Get only the certificate (step 1~4) by running the script on your server and then install the certificate with cpanel or equivalent control panels. If you don't want to go all technical about it and just want to follow a step by step process to get the certificate, then [this tutorial](https://neurobin.org/docs/web/letsacme/get-letsencrypt-certficate-for-shared-hosting/) may be the right choice for you.
 
 ## 1: Create a Let's Encrypt account private key (if you haven't already):
 You must have a public key registered with Let's Encrypt and use the corresponding private key to sign your requests. Thus you first need to create a key, which **letsacme** will use to register an account for you and sign all the following requests.
