@@ -426,6 +426,6 @@ Another full-fledged JSON file using only a single AcmeDir as challenge director
 "Force":"False"
 }
 ```
-The above JSON is exactly for the scenario where you are using it in acme-tiny compatible mode or using the [3.3](#work-around) workaround for shared servers.
+The above JSON is exactly for the scenario where you are using it in acme-tiny compatible mode or using the <a href="#work-around">3.3</a> workaround for shared servers.
 
-For [3.3](#work-around) workaround, change the AcmeDir to `/var/www/challenge/challenge` where `/var/www/challenge` is the document root of your dedicated http site (challenge.example.com); in that way you can use the exact redirection code mentioned in section [3.3](#work-around).
+For <a href="#work-around">3.3</a> workaround, change the AcmeDir to `/var/www/challenge/challenge` where `/var/www/challenge` is the document root of your dedicated http site (challenge.example.com); in that way you can use the exact redirection code mentioned in section <a href="#work-around">3.3</a>.
