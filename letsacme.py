@@ -9,7 +9,7 @@ CA_VALID = "https://acme-v01.api.letsencrypt.org"
 CA_TEST = "https://acme-staging.api.letsencrypt.org"
 DEFAULT_CA = CA_VALID
 CHALLENGE_DIR=".well-known/acme-challenge"
-VERSION = "0.0.1"
+VERSION = "0.0.3"
 VERSION_INFO="letsacme version: "+VERSION
 
 LOGGER = logging.getLogger(__name__)
@@ -72,27 +72,24 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                 dom1 = re.sub("^www\\.","",dom)
             else:
                 dom1 = "www."+dom
-            if dom1 not in conf_json:
-                log.error("E: Failed to find "+dom+" or "+dom1+" in\n"+json.dumps(conf_json, indent=4, sort_keys=True))
-                sys.exit(1)
-            else: dom = dom1
+            if dom1 in conf_json: dom = dom1
         try:
-            if 'AcmeDir' in conf_json[dom]:
-                doc_root, acmed = None, conf_json[dom]['AcmeDir']
-            elif 'DocumentRoot' in conf_json[dom]:
-                doc_root, acmed =  conf_json[dom]['DocumentRoot'], None
-            else: # if none is given we will try to take challenge dir from global options
-                if 'AcmeDir' in conf_json:
-                    return None, conf_json['AcmeDir']
-                elif 'DocumentRoot' in conf_json:
-                    return conf_json['DocumentRoot'], None
-                else:
-                    log.error("E: There is no valid entry for \"DocumentRoot\" or \"AcmeDir\" in\n"+json.dumps(conf_json[dom], indent=4, sort_keys=True))
-                    sys.exit(1)
+            if dom in conf_json:
+                if 'AcmeDir' in conf_json[dom]:
+                    return None, conf_json[dom]['AcmeDir']
+                elif 'DocumentRoot' in conf_json[dom]:
+                    return  conf_json[dom]['DocumentRoot'], None
+            # if none is given we will try to take challenge dir from global options
+            if 'AcmeDir' in conf_json:
+                return None, conf_json['AcmeDir']
+            elif 'DocumentRoot' in conf_json:
+                return conf_json['DocumentRoot'], None
+            else:
+                log.error("E: There is no valid entry for \"DocumentRoot\" or \"AcmeDir\" in\n"+json.dumps(conf_json[dom], indent=4, sort_keys=True))
+                sys.exit(1)
             if not os.path.exists(doc_root) and (doc_root != "") :
                 log.error("E: Document Root: "+doc_root+" doesn't exist")
                 sys.exit(1)
-            return doc_root, acmed
         except KeyError:
             log.error("E: There is no entry for "+dom+" in\n"+json.dumps(conf_json, indent=4, sort_keys=True))
             sys.exit(1)
@@ -229,12 +226,11 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                     except:
                         log.error("E: Failed to remove "+wellknown_path);sys.exit(1)
                 else : 
-                    log.error("E: "+wellknown_path+" is a directory. It shouldn't even exist in normal cases.\
-                    Try --force option if you are sure about deleting it and all of its' content")
-                    sys.exit(1)
+                    log.error("E: "+wellknown_path+" is a directory. It shouldn't even exist in normal cases. Try --force option if you are sure about deleting it and all of its' content");sys.exit(1)
         try:
             with open(wellknown_path, "w") as wellknown_file:
                 wellknown_file.write(keyauthorization)
+                #log.info("\tChallenge path: "+wellknown_path+"\n\tAuth: "+keyauthorization)
         except Exception as e:
             log.error(str(e));sys.exit(1)
             
@@ -309,14 +305,14 @@ def main(argv):
             This script automates the process of getting a signed TLS/SSL certificate from
             Let's Encrypt using the ACME protocol. It will need to be run on your server
             and have access to your private account key, so PLEASE READ THROUGH IT! It's
-            only ~350 lines, so it won't take that long.
+            only ~400 lines, so it won't take that long.
 
             ===Example Usage===
-            python letsacme.py --account-key ./account.key --csr ./domain.csr --config-json /path/to/config.json --cert-file signed.crt --chain-file chain.crt
+            python letsacme.py --config-json /path/to/config.json
             ===================
 
             ===Example Crontab Renewal (once per month)===
-            0 0 1 * * python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --no-chain > /path/to/signed.crt 2>> /var/log/letsacme.log
+            0 0 1 * * python /path/to/letsacme.py --config-json /path/to/config.json > /path/to/full-chain.crt 2>> /var/log/letsacme.log
             ==============================================
             """)
     )

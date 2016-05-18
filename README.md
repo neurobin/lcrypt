@@ -125,6 +125,7 @@ Alias /.well-known/acme-challenge /var/www/challenges
 ```
 **You can't use this method on shared server** as most of the shared server won't allow Aliases in AccessFile. For shared server/hosting, you should either use your site's document root as the destination for acme-challenges, or redirect the challenges to a different directory which has a valid and active URL and allows http file download without hindrance. Follow the following step (section 3.3) to do that.
 
+<span id="work-around"></span>
 ###3.3 What will you do if the challenge directory/document root doesn't allow normal http on port 80:
 **The challenge directory must be accessible with normal http on port 80.**
 
@@ -144,7 +145,9 @@ You can however work this around with an effective but peculiar way:
 
 Create a subdomain (or use an existing one with no additional framework, just plain old http site). Check if the subdomain is accessible (by creating a simple html file inside). Create a directory named `challenge` inside it's document root (don't use `.well-known/acme-challenge` instead of `challenge`, it will create an infinite loop if this new subdomain also contains the following line of redirection code). And then redirect all *.well-know/acme-challenge* requests to all of the domains you want certificate for to this directory of this new subdomain. A mod_rewrite rule for apache2 would be (add it in the .htaccess file or whatever AccessFile you have):
 ```apache
-RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.com/challenge/$1
+RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.com/challenge/$1 [L,R=302]
+## If you have any rule that redirects http to https, make sure this rule stays above that one
+## To keep it simple, add this rule above all other rewrite rules.
 ```
 And provide the challenge directory (the `challenge` directory path inside the document root) to **letsacme** as an *acme-dir* (not as document root) with `--acme-dir` option or define it inside the config.json file:
 ```json
@@ -405,5 +408,24 @@ A full fledged JSON configuration file:
 "Force":"False"
 }
 ```
+Another full-fledged JSON file using only a single AcmeDir as challenge directory for every domain:
 
+```json
+{
+"AcmeDir":"/var/www/challenge",
+"_comment":"Global definition of AcmeDir",
+"AccountKey":"account.key",
+"CSR": "domain.csr",
+"CertFile":"domain.crt",
+"ChainFile":"chain.crt",
+"CA":"",
+"__comment":"For CA default value will be used. please don't change this option. Use the Test property if you want the staging api.",
+"NoChain":"False",
+"NoCert":"False",
+"Test":"False",
+"Force":"False"
+}
+```
+The above JSON is exactly for the scenario where you are using it in acme-tiny compatible mode or using the [3.3](#work-around) workaround for shared servers.
 
+For [3.3](#work-around) workaround, change the AcmeDir to `/var/www/challenge/challenge` where `/var/www/challenge` is the document root of your dedicated http site (challenge.example.com); in that way you can use the exact redirection code mentioned in section [3.3](#work-around).
