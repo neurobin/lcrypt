@@ -125,7 +125,7 @@ Alias /.well-known/acme-challenge /var/www/challenges
 ```
 **You can't use this method on shared server** as most of the shared server won't allow Aliases in AccessFile. For shared server/hosting, you should either use your site's document root as the destination for acme-challenges, or redirect the challenges to a different directory which has a valid and active URL and allows http file download without hindrance. Follow the following step (section 3.3) to do that.
 
-<span id="work-around"></span>
+<div id="work-around"></div>
 ###3.3 What will you do if the challenge directory/document root doesn't allow normal http on port 80:
 **The challenge directory must be accessible with normal http on port 80.**
 
