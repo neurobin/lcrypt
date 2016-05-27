@@ -155,7 +155,7 @@ And provide the challenge directory (the `challenge` directory path inside the d
 "AcmeDir":"/var/www/subdomain/challenge"
 }
 ```
-**You can of course enable https for this subdomain too.** You can use the same redirect rule for that.
+**You can of course enable https for this subdomain too (but don't do it, keep it http).**
 
 If you are not sure of how the json file should be layed out, look inside the *config.json* file. It's a complete configuration file. You can pass all the options with the configuration json file (except `--config-json` of course, and `--quiet`). When using the `"AcmeDir"` property, don't define document root for individual domains, it will force it to use the document root instead, and also, don't pass AcmeDir as document root, they are **not** the same.
 
