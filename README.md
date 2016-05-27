@@ -281,6 +281,8 @@ Even better if you include an initial random delay:
 ```sh
 0 0 1 * * /usr/local/bin/perl -le 'sleep rand 6000' && /bin/sh /path/to/script
 ```
+
+### Another way:
 Let's Encrypt recommends you to run the renewal at least every day. That can be achieved too:
 ```sh
 0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed1.crt --chain-file /path/to/chain1.crt  > /path/to/fullchain1.crt 2>> /var/log/letsacme.log
