@@ -9,7 +9,7 @@ CA_VALID = "https://acme-v01.api.letsencrypt.org"
 CA_TEST = "https://acme-staging.api.letsencrypt.org"
 DEFAULT_CA = CA_VALID
 CHALLENGE_DIR=".well-known/acme-challenge"
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 VERSION_INFO="letsacme version: "+VERSION
 
 LOGGER = logging.getLogger(__name__)
