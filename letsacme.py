@@ -9,7 +9,7 @@ CA_VALID = "https://acme-v01.api.letsencrypt.org"
 CA_TEST = "https://acme-staging.api.letsencrypt.org"
 DEFAULT_CA = CA_VALID
 CHALLENGE_DIR=".well-known/acme-challenge"
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 VERSION_INFO="letsacme version: "+VERSION
 
 LOGGER = logging.getLogger(__name__)
@@ -356,18 +356,20 @@ def main(argv):
             sys.exit(1)
     
     # get options from JSON
-    args.account_key, args.csr, args.acme_dir, args.cert_file, args.chain_file, args.ca = get_options_from_json(conf_json,
-        args.account_key, args.csr, args.acme_dir, args.cert_file, args.chain_file, args.ca)
-    args.no_chain, args.no_cert, args.test, args.force = get_boolean_options_from_json(conf_json,args.no_chain,
-        args.no_cert, args.test, args.force)
+    if args.config_json:
+        args.account_key, args.csr, args.acme_dir, args.cert_file, args.chain_file, args.ca = get_options_from_json(conf_json,
+            args.account_key, args.csr, args.acme_dir, args.cert_file, args.chain_file, args.ca)
+        args.no_chain, args.no_cert, args.test, args.force = get_boolean_options_from_json(conf_json,args.no_chain,
+            args.no_cert, args.test, args.force)
      
     if not args.quiet:
-        if 'Quiet' in conf_json:
+        if conf_json and 'Quiet' in conf_json:
             LOGGER.warning("--quiet can not be passed inside configuration JSON. It will be ignored.")
 
-    # show error if account key and csr not specified
+    # show error in case args are missing
     if not args.account_key: LOGGER.error("E: Account key path not specified.");sys.exit(1)
     if not args.csr: LOGGER.error("E: CSR path not specified");sys.exit(1)
+    if not args.config_json and not args.acme_dir: LOGGER.error("E: Either --acme-dir or --config-json must be given");sys.exit(1)
     # we need to set a default CA if not specified
     if not args.ca: 
         if args.test: args.ca = CA_TEST
