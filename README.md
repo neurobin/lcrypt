@@ -48,6 +48,7 @@ For multi-domain:
 ```sh
 openssl req -new -sha256 -key domain.key -subj "/C=US/ST=CA/O=MY Org/CN=example.com" -reqexts SAN -config <(cat /etc/ssl/openssl.cnf  <(printf "[SAN]\nsubjectAltName=DNS:example.com,DNS:www.example.com,DNS:subdomain.example.com,DNS:www.subdomain.com")) -out domain.csr
 ```
+It would probably be easier if you use [gencsr](https://github.com/neurobin/gencsr) to create CSR for multiple domains.
 
 ##3: Prepare the challenge directory/s:
 **letsacme** provides two methods to prepare the challenge directory/s to complete the acme challenges. One of them is the same as [acme-tiny](https://github.com/diafygi/acme-tiny) (with `--acme-dir`), the other is quite different and simplifies things for users who doesn't have full access to their servers i.e for shared servers or shared hosting. 
