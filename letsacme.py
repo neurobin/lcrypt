@@ -1,20 +1,30 @@
 #!/usr/bin/env python
 import argparse, subprocess, json, os, sys, base64, binascii, time, hashlib, re, copy, textwrap, logging, errno, shutil
-try:
-    from urllib.request import urlopen # Python 3
-except ImportError:
-    from urllib2 import urlopen # Python 2
+try: # Python 3
+    from urllib.request import urlopen
+    from urllib.request import build_opener
+    from urllib.request import HTTPRedirectHandler
+except ImportError:  # Python 2
+    from urllib2 import urlopen
+    from urllib2 import HTTPRedirectHandler
+    from urllib2 import build_opener
     
 CA_VALID = "https://acme-v01.api.letsencrypt.org"
 CA_TEST = "https://acme-staging.api.letsencrypt.org"
+TERMS = 'https://acme-v01.api.letsencrypt.org/terms'
 DEFAULT_CA = CA_VALID
 CHALLENGE_DIR=".well-known/acme-challenge"
-VERSION = "0.0.6"
+VERSION = "0.0.7"
 VERSION_INFO="letsacme version: "+VERSION
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
+
+def get_redirected_url(url):
+    opener = build_opener(HTTPRedirectHandler)
+    request = opener.open(url)
+    return request.url
 
 def get_boolean_options_from_json(conf_json,ncn,ncrt,tst,frc):
     keys = ['NoChain','NoCert','Test','Force']
@@ -167,7 +177,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
     log.info("Registering account...")
     code, result, crt_info = _send_signed_request(CA + "/acme/new-reg", {
         "resource": "new-reg",
-        "agreement": "https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf",
+        "agreement": get_redirected_url(TERMS),
     })
     if code == 201:
         log.info("Registered!")
