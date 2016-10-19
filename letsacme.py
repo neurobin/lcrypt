@@ -8,18 +8,27 @@ except ImportError:  # Python 2
     from urllib2 import urlopen
     from urllib2 import HTTPRedirectHandler
     from urllib2 import build_opener
-    
+
+##################### letsacme info #####################
+VERSION = "0.0.8"
+VERSION_INFO="letsacme version: "+VERSION
+##################### API info ##########################
 CA_VALID = "https://acme-v01.api.letsencrypt.org"
 CA_TEST = "https://acme-staging.api.letsencrypt.org"
 TERMS = 'https://acme-v01.api.letsencrypt.org/terms'
+API_DIR_NAME = 'directory'
+new_reg_key = 'new-reg'
+new_cert_key = 'new-cert'
+new_authz_key = 'new-authz'
+##################### Defaults ##########################
 DEFAULT_CA = CA_VALID
-CHALLENGE_DIR=".well-known/acme-challenge"
-VERSION = "0.0.7"
-VERSION_INFO="letsacme version: "+VERSION
-
+API_INFO = set({})
+CHALLENGE_DIR=".well-known/acme-challenge" # used as a fallback in DocumentRoot method
+##################### Logger ############################
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
+#########################################################
 
 def get_redirected_url(url):
     opener = build_opener(HTTPRedirectHandler)
@@ -113,7 +122,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        log.error("OpenSSL Error: {0}".format(err));sys.exit(1)
+        log.error("\tOpenSSL Error: {0}".format(err));sys.exit(1)
     pub_hex, pub_exp = re.search(
         r"modulus:\n\s+00:([a-f0-9\:\s]+?)\npublicExponent: ([0-9]+)",
         out.decode('utf8'), re.MULTILINE|re.DOTALL).groups()
@@ -129,6 +138,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
     }
     accountkey_json = json.dumps(header['jwk'], sort_keys=True, separators=(',', ':'))
     thumbprint = _b64(hashlib.sha256(accountkey_json.encode('utf8')).digest())
+    log.info('\tParsed!')
 
     # helper function make signed requests
     def _send_signed_request(url, payload):
@@ -160,52 +170,62 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        log.error("Error loading {0}: {1}".format(csr, err))
+        log.error("\tError loading {0}: {1}".format(csr, err))
         sys.exit(1)
     domains = set([])
     common_name = re.search(r"Subject:.*? CN=([^\s,;/]+)", out.decode('utf8'))
     if common_name is not None:
         domains.add(common_name.group(1))
-        log.info("CN: "+common_name.group(1))
+        log.info("\tCN: "+common_name.group(1))
     subject_alt_names = re.search(r"X509v3 Subject Alternative Name: \n +([^\n]+)\n", out.decode('utf8'), re.MULTILINE|re.DOTALL)
     if subject_alt_names is not None:
         for san in subject_alt_names.group(1).split(", "):
             if san.startswith("DNS:"):
                 domains.add(san[4:])
+    log.info('\tParsed!')
 
     # get the certificate domains and expiration
     log.info("Registering account...")
-    code, result, crt_info = _send_signed_request(CA + "/acme/new-reg", {
-        "resource": "new-reg",
-        "agreement": get_redirected_url(TERMS),
+    agreement_url = get_redirected_url(TERMS)
+    code, result, crt_info = _send_signed_request(API_INFO[new_reg_key], {
+        "resource": new_reg_key,
+        "agreement": agreement_url,
     })
     if code == 201:
-        log.info("Registered!")
+        log.info("\tRegistered!")
     elif code == 409:
-        log.info("Already registered!")
+        log.info("\tAlready registered!")
     else:
-        log.error("Error registering: {0} {1}".format(code, result))
+        log.error("\tError registering: {0} {1}".format(code, result))
         sys.exit(1)
     # verify each domain
     for domain in domains:
         log.info("Verifying {0}...".format(domain))
 
         # get new challenge
-        code, result, crt_info = _send_signed_request(CA + "/acme/new-authz", {
-            "resource": "new-authz",
+        code, result, crt_info = _send_signed_request(API_INFO[new_authz_key], {
+            "resource": new_authz_key,
             "identifier": {"type": "dns", "value": domain},
         })
         if code != 201:
-            log.error("Error requesting challenges: {0} {1}".format(code, result));sys.exit(1)
+            log.error("\tError requesting challenges: {0} {1}".format(code, result));sys.exit(1)
             
         # create the challenge file
         challenge = [c for c in json.loads(result.decode('utf8'))['challenges'] if c['type'] == "http-01"][0]
         token = re.sub(r"[^A-Za-z0-9_\-]", "_", challenge['token'])
         keyauthorization = "{0}.{1}".format(token, thumbprint)
+        if 'validationRecord' in challenge:
+            for item in challenge['validationRecord']:
+                if 'url' in item:
+                    res_m = re.match('.*://'+domain+r'/([\w\W]*)/'+token, item['url'])
+                    if res_m:
+                        challenge_dir = res_m.group(1)
+                        wellknown_url = res_m.group(0)
+                        log.info('\tWell known path was parsed: '+challenge_dir)
         # paranoid check
         token = token.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
         if not (re.match("^[^"+os.path.sep+"/\\\\"+(os.path.altsep or "")+"]{4,}$",token)): # the number 4 (3 is enough) takes account for .. scenerio
-            log.error("E: Invalid and possibly dangerous token.")
+            log.error("\tE: Invalid and possibly dangerous token.")
             sys.exit(1)
         # take either acme-dir or document dir method
         if acme_dir and not conf_json:
@@ -221,22 +241,22 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                 make_dirs(acme_dir)  # create the challenge dir if not exists
                 wellknown_path = os.path.join(acme_dir, token)
             else:
-                log.error("Couldn't get DocumentRoot or AcmeDir from: \n"+json.dumps(conf_json, indent=4, sort_keys=True));sys.exit(1)
-        else: log.error("Challenge directory not given");sys.exit(1)
+                log.error("\tCouldn't get DocumentRoot or AcmeDir from: \n"+json.dumps(conf_json, indent=4, sort_keys=True));sys.exit(1)
+        else: log.error("\tChallenge directory not given");sys.exit(1)
         # another paranoid check
         if os.path.isdir(wellknown_path):
-            log.warning("W: "+wellknown_path+" exists.")
+            log.warning("\tW: "+wellknown_path+" exists.")
             try: os.rmdir(wellknown_path)
             except OSError:
                 if(force):
                     try:
                         shutil.rmtree(wellknown_path) # This is why we have done paranoid check on token
                         # though it itself is inside a paranoid check which will probably never be reached
-                        log.info("Removed "+wellknown_path)
+                        log.info("\tRemoved "+wellknown_path)
                     except:
-                        log.error("E: Failed to remove "+wellknown_path);sys.exit(1)
+                        log.error("\tE: Failed to remove "+wellknown_path);sys.exit(1)
                 else : 
-                    log.error("E: "+wellknown_path+" is a directory. It shouldn't even exist in normal cases. Try --force option if you are sure about deleting it and all of its' content");sys.exit(1)
+                    log.error("\tE: "+wellknown_path+" is a directory. It shouldn't even exist in normal cases. Try --force option if you are sure about deleting it and all of its' content");sys.exit(1)
         try:
             with open(wellknown_path, "w") as wellknown_file:
                 wellknown_file.write(keyauthorization)
@@ -245,14 +265,15 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
             log.error(str(e));sys.exit(1)
             
         # check that the file is in place
-        wellknown_url = "http://{0}/.well-known/acme-challenge/{1}".format(domain, token)
+        if not wellknown_url:
+            wellknown_url = ("http://{0}/"+challenge_dir+"/{1}").format(domain, token)
         try:
             resp = urlopen(wellknown_url)
             resp_data = resp.read().decode('utf8').strip()
             assert resp_data == keyauthorization
         except (IOError, AssertionError):
             os.remove(wellknown_path)
-            log.error("Wrote file to {0}, but couldn't download {1}".format(
+            log.error("\tWrote file to {0}, but couldn't download {1}".format(
                 wellknown_path, wellknown_url))
             sys.exit(1)
 
@@ -262,7 +283,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
             "keyAuthorization": keyauthorization,
         })
         if code != 202:
-            log.error("Error triggering challenge: {0} {1}".format(code, result.read()))
+            log.error("\tError triggering challenge: {0} {1}".format(code, result.read()))
             os.remove(wellknown_path);sys.exit(1)
 
         # wait for challenge to be verified
@@ -271,17 +292,17 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                 resp = urlopen(challenge['uri'])
                 challenge_status = json.loads(resp.read().decode('utf8'))
             except IOError as e:
-                log.error("Error checking challenge: {0} {1}".format(
+                log.error("\tError checking challenge: {0} {1}".format(
                     e.code, json.dumps(e.read().decode('utf8'),indent=4)))
                 os.remove(wellknown_path);sys.exit(1)
             if challenge_status['status'] == "pending":
                 time.sleep(2)
             elif challenge_status['status'] == "valid":
-                log.info("{0} verified!".format(domain))
+                log.info("\t{0} verified!".format(domain))
                 os.remove(wellknown_path)
                 break
             else:
-                log.error("{0} challenge did not pass: {1}".format(
+                log.error("\t{0} challenge did not pass: {1}".format(
                     domain, challenge_status))
                 os.remove(wellknown_path)
                 sys.exit(1)
@@ -293,20 +314,26 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
     proc = subprocess.Popen(["openssl", "req", "-in", csr, "-outform", "DER"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     csr_der, err = proc.communicate()
-    code, result, crt_info = _send_signed_request(CA + "/acme/new-cert", {
-        "resource": "new-cert",
+    code, result, crt_info = _send_signed_request(API_INFO[new_cert_key], {
+        "resource": new_cert_key,
         "csr": _b64(csr_der),
     })
     if code != 201:
-        log.error("Error signing certificate: {0} {1}".format(code, result));sys.exit(1)
+        log.error("\tError signing certificate: {0} {1}".format(code, result));sys.exit(1)
 
-    # get the chain url
-    chain_url = re.match("\\s*<([^>]+)>;rel=\"up\"",crt_info['Link'])
+    log.info('\tParsing chain url...')
+    res_m = re.match("\\s*<([^>]+)>;rel=\"up\"",crt_info['Link'])
+    if res_m:
+        chain_url = res_m.group(1)
+        log.info('\tParsed chain url')
+    else:
+        chain_url = None
+        log.error('\tW: Failed to parse chain url!')
     
     # return signed certificate!
-    log.info("Certificate signed!"+test_mode)
+    log.info("\tSigned!"+test_mode)
     return """-----BEGIN CERTIFICATE-----\n{0}\n-----END CERTIFICATE-----\n""".format(
-        "\n".join(textwrap.wrap(base64.b64encode(result).decode('utf8'), 64))), chain_url.group(1)
+        "\n".join(textwrap.wrap(base64.b64encode(result).decode('utf8'), 64))), chain_url
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -314,22 +341,21 @@ def main(argv):
         description=textwrap.dedent("""\
             This script automates the process of getting a signed TLS/SSL certificate from
             Let's Encrypt using the ACME protocol. It will need to be run on your server
-            and have access to your private account key, so PLEASE READ THROUGH IT! It's
-            only ~400 lines, so it won't take that long.
+            and have access to your private account key, so PLEASE READ THROUGH IT!.
 
             ===Example Usage===
             python letsacme.py --config-json /path/to/config.json
             ===================
 
             ===Example Crontab Renewal (once per month)===
-            0 0 1 * * python /path/to/letsacme.py --config-json /path/to/config.json > /path/to/full-chain.crt 2>> /var/log/letsacme.log
+            0 0 1 * * python /path/to/letsacme.py --config-json /path/to/config.json > /path/to/full-chain.crt 2>> /path/to/letsacme.log
             ==============================================
             """)
     )
     parser.add_argument("--account-key", help="Path to your Let's Encrypt account private key.")
     parser.add_argument("--csr", help="Path to your certificate signing request.")
     parser.add_argument("--config-json",default=None, help="Configuration JSON file. Must contain \"DocumentRoot\":\"/path/to/document/root\" entry for each domain.")
-    parser.add_argument("--acme-dir",default=None, help="Path to the .well-known/acme-challenge/ directory")
+    parser.add_argument("--acme-dir",default=None, help="Path to the acme challenge directory")
     parser.add_argument("--cert-file", default="", help="File to write the certificate to. Overwrites if file exists.")
     parser.add_argument("--chain-file", default="", help="File to write the certificate to. Overwrites if file exists.")
     parser.add_argument("--quiet", action="store_const", const=logging.ERROR, help="Suppress output except for errors.")
@@ -384,6 +410,10 @@ def main(argv):
     if not args.ca: 
         if args.test: args.ca = CA_TEST
         else: args.ca = DEFAULT_CA
+    
+    global API_INFO # this is where we will pull our information from
+    API_INFO = json.loads(urlopen(args.ca+'/'+API_DIR_NAME).read().decode('utf8'))
+    
     # lets do the main task
     signed_crt, chain_url = get_crt(args.account_key, args.csr, conf_json, challenge_dir=CHALLENGE_DIR,
         acme_dir=args.acme_dir, log=LOGGER, CA=args.ca, force=args.force)
@@ -394,12 +424,13 @@ def main(argv):
     if not args.no_cert: 
         sys.stdout.write(signed_crt)
     
-    chain = get_chain(chain_url,log=LOGGER)
-    if(args.chain_file):
-        with open(args.chain_file, "w") as f:
-            f.write(chain)
-    if not args.no_chain:
-        sys.stdout.write(chain)
+    if chain_url:
+        chain = get_chain(chain_url,log=LOGGER)
+        if(args.chain_file):
+            with open(args.chain_file, "w") as f:
+                f.write(chain)
+        if not args.no_chain:
+            sys.stdout.write(chain)
 
 if __name__ == "__main__": # pragma: no cover
     main(sys.argv[1:])
