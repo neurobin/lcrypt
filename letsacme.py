@@ -9,7 +9,7 @@ CA_VALID = "https://acme-v01.api.letsencrypt.org"
 CA_TEST = "https://acme-staging.api.letsencrypt.org"
 DEFAULT_CA = CA_VALID
 CHALLENGE_DIR=".well-known/acme-challenge"
-VERSION = "0.0.5"
+VERSION = "0.0.6"
 VERSION_INFO="letsacme version: "+VERSION
 
 LOGGER = logging.getLogger(__name__)
@@ -167,7 +167,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
     log.info("Registering account...")
     code, result, crt_info = _send_signed_request(CA + "/acme/new-reg", {
         "resource": "new-reg",
-        "agreement": "https://letsencrypt.org/documents/LE-SA-v1.0.1-July-27-2015.pdf",
+        "agreement": "https://letsencrypt.org/documents/LE-SA-v1.1.1-August-1-2016.pdf",
     })
     if code == 201:
         log.info("Registered!")
