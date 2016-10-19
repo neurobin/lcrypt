@@ -31,9 +31,12 @@ LOGGER.setLevel(logging.INFO)
 #########################################################
 
 def get_redirected_url(url):
-    opener = build_opener(HTTPRedirectHandler)
-    request = opener.open(url)
-    return request.url
+    try:
+        opener = build_opener(HTTPRedirectHandler)
+        request = opener.open(url)
+        return request.url
+    except:
+        return url
 
 def get_boolean_options_from_json(conf_json,ncn,ncrt,tst,frc):
     keys = ['NoChain','NoCert','Test','Force']
