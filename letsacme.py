@@ -268,7 +268,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
             log.error(str(e));sys.exit(1)
             
         # check that the file is in place
-        if not wellknown_url:
+        if not 'wellknown_url' in locals():
             wellknown_url = ("http://{0}/"+challenge_dir+"/{1}").format(domain, token)
         try:
             resp = urlopen(wellknown_url)
