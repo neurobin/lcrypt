@@ -1,0 +1,363 @@
+#!/bin/bash
+p_name=lampi
+p_author='Md Jahidul Hamid'
+p_source='https://github.com/neurobin/lampi'
+p_bugt="$p_source/issues"
+p_version=0.1.0
+ver_info="
+Name        : $p_name
+Version     : $p_version
+Author      : $p_author
+Source      : $p_source
+Bug tracker : $p_bugt
+"
+help="
+######################### lampi ##############################
+############# LAMP stack installer for Ubuntu ################
+##############################################################
+# Usage:
+#   lampi [-i, -ri, -u, -nu, -s, -so, -n, -dr, -v, -h]
+#
+# Run simply lampi -i to install the LAMP stack
+# with default configs
+#
+# Options:
+#   [ -i, --install ]       : install LAMP
+#   [ -ri, --reinstall ]    : reinstall LAMP
+#   [ -u, --uninstall ]     : uninstall LAMP
+#   [ -nu, --no-update ]    : do not run apt-get update
+#   [ -s, --ssl ]           : enable SSL   
+#   [ -so, --ssl-only ]     : configure for https site only 
+#   [ -n, --name ]          : server name (default localhost)
+#   [ -dr, --doc-root ]     : arbitrary document root
+#   [ -v, --version ]       : show version info
+#   [ -h, --help ]          : show help 
+##############################################################
+"
+dr=''
+ssl=false
+ssl_only=false
+no_update=false
+install=false
+localhost=localhost
+uninstall=false
+reinstall=false
+for op in "$@";do
+    case "$op" in
+        -v|--version)
+            echo "$ver_info"
+            shift
+            exit 0
+            ;;
+        -h|--help)
+            echo "$help"
+            shift
+            exit 0
+            ;;
+        -dr|--doc-root)
+            shift
+            if [[ "$1" != "" ]]; then
+                dr="${1/%\//}"
+                shift
+            else
+                echo "E: Arg missing for -dr option"
+                exit 1
+            fi
+            ;;
+        -s|--ssl)
+            ssl=true
+            shift
+            ;;
+        -so|--ssl-only)
+            ssl=true
+            ssl_only=true
+            shift
+            ;;
+        -nu|--no-update)
+            no_update=true
+            shift
+            ;;
+        -i|--install)
+            install=true
+            reinstall=false
+            uninstall=false
+            shift
+            ;;
+        -ri|--reinstall)
+            install=true
+            reinstall=true
+            uninstall=false
+            shift
+            ;;
+        -u|--uninstall)
+            install=false
+            reinstall=false
+            uninstall=true
+            shift
+            ;;
+        -n|--name)
+            shift
+            if [[ "$1" != "" ]]; then
+                localhost="$1"
+                shift
+            else
+                echo "E: Arg missing for -n option"
+                exit 1
+            fi
+            ;;
+        -*)
+            echo "E: Invalid option: $1"
+            shift
+            exit 1
+            ;;
+    esac
+done
+
+[ "$dr" = "" ] && dr='/var/www/html'
+
+opts="
+***** Passed options *****
+DocumentRoot    : $dr
+ServerName      : $localhost
+SSL             : $ssl
+SSL only        : $ssl_only
+Install         : $install
+Uninstall       : $uninstall
+Reinstall       : $reinstall
+NoUpdate        : $no_update
+"
+echo "$opts"
+
+
+#check for root
+if [ $EUID -ne 0 ]; then
+    printf "\n\tRoot privilege required\n"
+    printf "\tSorry! Exiting\n\n"
+    exit 1
+fi
+user=www-data
+if [ ! -z "$SUDO_USER" ]; then
+    user="$SUDO_USER"
+fi
+mkdir -p "$dr"
+chown $user:$user "$dr"
+
+#extract dist version
+rel=(`lsb_release -r | grep -o '[0-9]\+'`)
+rv=${rel[0]}
+
+tphp='
+<?php
+phpinfo();
+?>
+'
+
+if $install || $uninstall; then
+
+    #update
+    if ! $no_update && ! $uninstall;then apt-get update;fi
+
+    #apache2
+    list=(
+    'apache2'
+    )
+    
+    #php
+    php='mcrypt'
+    if (( $rv <= 15 ));then
+        php="$php php5 libapache2-mod-php5 php5-mcrypt php5-cgi php5-cli php5-common php5-curl php5-gd"
+    elif (( $rv >= 16 ));then
+        php="$php php libapache2-mod-php php-mcrypt php-cgi php-cli php-common php-curl php-gd"
+    fi
+    
+    list+=("$php")
+
+    # mysql
+    mysql='mysql-server mysql-client'
+    if (( $rv <= 15 ));then
+        mysql="$mysql php5-mysql"
+    elif (( $rv >= 16 ));then
+        mysql="$mysql php-mysql"
+    fi
+    list+=("$mysql")
+
+    #phpmyadmin
+    phpmd='phpmyadmin apache2-utils'
+    if (( $rv >= 16 ));then
+        phpmd="$phpmd php-gettext php-mbstring"
+    fi
+    list+=("$phpmd")
+
+    for app in "${list[@]}";do
+        if ! $uninstall; then
+            echo "###### Installing: $app #######"
+            { if ! $reinstall; then apt-get -y install $app;else apt-get --force-yes -y install --reinstall $app;fi; } || 
+            {
+            echo "W: Failed to install: $app"
+            [ "$app" = apache2 ] && exit 1
+            }
+         else
+            echo "###### Removing: $app #######"
+            apt-get  -y purge $app
+         fi
+    done
+    apt-get autoremove
+    
+    if ! $uninstall; then
+        if (( $rv <= 15 )); then
+            php5enmod mcrypt
+        elif (( $rv >= 16 )); then
+            phpenmod mcrypt
+            phpenmod mbstring
+        fi
+    
+    fi
+        
+fi
+
+#if uninstall exit
+if $uninstall;then echo "Removed LAMP installation (custom sites are not removed)."; exit 0;fi
+
+#create info.php
+[ ! -f "$dr"/info.php ] && echo "$tphp" > "$dr"/info.php && printf "\n\tinfo.php created\n" || printf "\n\tinfo.php exists (skipped)\n"
+chown $user:$user "$dr"/info.php
+
+aconf=/etc/apache2/apache2.conf
+pdconf=/etc/phpmyadmin/apache.conf
+pdincl="Include $pdconf"
+if ! grep -s -e "$pdincl" "$aconf" >/dev/null 2>&1; then
+    sed -i.bak "$ a $pdincl" "$aconf" &&
+    printf "\n\t apache2 conf modified to include phpmyadmin\n" ||
+    printf "\n\tE: failed to modify apache2 conf for phpmyadmin\n"
+else
+    printf "\n\tphpmyadmin is already added in apache2 conf (skipped)\n"
+fi
+
+dire_opts="\n\t\tAllowOverride All\n\t\tOptions Indexes FollowSymLinks MultiViews\n\t\tOrder allow,deny\n\t\tRequire all granted\n\t\tAllow from all\n\t\t\n\t"
+dire_opts_ssl="\n\t\t\tAllowOverride All\n\t\t\tOptions Indexes FollowSymLinks MultiViews\n\t\t\tOrder allow,deny\n\t\t\tRequire all granted\n\t\t\tAllow from all\n\t\t\tSSLOptions +StdEnvVars\n\t\t\t\n\t\t"
+dire="\t<Directory $dr>$dire_opts</Directory>\n"
+
+#custom sites
+ds='/etc/apache2/sites-available/000-default.conf'
+ds_ssl='/etc/apache2/sites-available/default-ssl.conf'
+dsn="$(dirname "$ds")/$localhost.conf"
+ds_ssln="$(dirname "$ds_ssl")/$localhost-ssl.conf"
+
+if [ "$ds" = "$dsn" ]; then
+    printf "$ds\m\t\tand\n$dsn\n\t\tcan not be same\nE: ServerName: $(basename "$ds") not allowed\n"
+    exit 1
+elif [ "$ds_ssl" = "$ds_ssln" ]; then
+    printf "$ds_ssl\m\t\tand\n$ds_ssln\n\t\tcan not be same\nE: ServerName: default not allowed\n"
+    exit 1
+fi
+
+export localhost
+export dr
+export dire
+copy_default_config(){
+    sed  -e "s=^\([[:blank:]]*DocumentRoot\).*$=\1 $dr="\
+               -e "s=^\([[:blank:]]*ServerName\).*$=\1 $localhost="\
+               -e "s=^\([[:blank:]]*<[[:blank:]]*Directory[[:blank:]]*\)[^[:blank:]]\+\([[:blank:]]*>[[:blank:]]*\)$=\1$dr\2="\
+               -e "s=^\([[:blank:]]*<[[:blank:]]*VirtualHost[[:blank:]]*\)[^:]*\(:[^>]*>[[:blank:]]*\)$=\1 127.0.0.1\2="\
+               "$1" > "$2" &&
+    printf "\n\tcopied $1 --> $2 with required modifications\n" ||
+    printf "\n\tE: Failed to copy $1 --> $2\n"
+}
+
+if ! $ssl_only; then
+    copy_default_config "$ds" "$dsn"
+fi
+if $ssl; then
+    copy_default_config "$ds_ssl" "$ds_ssln"
+fi
+
+insert_server_property(){
+    if ! grep -s -e "^\([[:blank:]]*$1\).*$" "$2" >/dev/null 2>&1; then
+        sed -i.bak -e "s=^[[:blank:]]*<[[:blank:]]*VirtualHost[[:blank:]]*.*>[[:blank:]]*$=&\n\tServerName $localhost=" "$2" &&
+        printf "\n\tSuccessfully inserted $1 to $2\n" ||
+        printf "\n\tE: Failed to insert $1 to $2\n"
+    else
+        printf "\n\t$1 exists in $2 (skipped)\n"
+    fi
+}
+if ! $ssl_only; then
+    insert_server_property ServerName "$dsn"
+fi
+if $ssl; then
+    insert_server_property ServerName "$ds_ssln"
+fi
+
+insert_docroot_property(){
+    if ! grep -s -e "^[[:blank:]]*<[[:blank:]]*Directory[[:blank:]]*[^[:blank:]]\+[[:blank:]]*>[[:blank:]]*$" "$1" >/dev/null 2>&1; then
+        sed -i.bak -e "s=^\([[:blank:]]*\)DocumentRoot.*$=&\n$dire=" "$1" &&
+        printf "\n\tSuccessfully inserted DocumentRoot in $1\n" ||
+        printf "\n\tE: Failed to insert DocumentRoot in $1\n"
+    else
+        cat "${1-x}" > "${1-x}.bak" 2>&1 &&
+        printf "\n\tBack up: ${1-x} succeded\n" ||
+        printf "\n\tE: Back up: ${1-x} failed\n"
+        echo "$(awk '
+        BEGIN       {p=1}
+        /^[[:blank:]]*<[[:blank:]]*Directory[[:blank:]]*[^[:blank:]]+[[:blank:]]*>[[:blank:]]*/   {print;print "'"$dire_opts_ssl"'";p=0}
+        /[^#]*<\/Directory/     {p=1}
+        p' "${1-x}")" > "${1-x}" &&
+        printf "\n\tSuccessfully edited ${1-x}\n" ||
+        printf "\n\tE: Failed to edit ${1-x}\n"
+    fi
+}
+
+if ! $ssl_only; then
+    insert_docroot_property "$dsn"
+fi
+if $ssl; then
+    insert_docroot_property "$ds_ssln"
+fi
+
+if ! grep -s -e "^127.0.0.1[[:blank:]]*$localhost[[:blank:]]*$" /etc/hosts >/dev/null 2>&1; then
+    sed -i.bak -e "1 a 127.0.0.1\t$localhost" /etc/hosts &&
+    printf "\n\tAdded $localhost to /etc/hosts\n" ||
+    printf "\n\tE: Failed to add $localhost to /etc/hosts\n"
+fi
+
+#enable mods
+a2enmod rewrite &&
+printf "\n\tEnabled mod_rewrite\n" || 
+printf "\n\tE: Failed to enable mod_rewrite\n"
+if $ssl; then 
+    a2enmod ssl &&
+    printf "\n\tEnabled mod_ssl\n" ||
+    printf "\n\tE: Failed to enable mod_ssl\n"
+fi
+
+#enable sites
+if ! $ssl_only; then
+    a2ensite "$localhost" &&
+    printf "\n\tEnabled $localhost\n" ||
+    printf "\n\tE: Failed to enable $localhost\n"
+fi
+if $ssl; then 
+    a2ensite "$localhost"-ssl &&
+    printf "\n\tEnabled $localhost-ssl\n" ||
+    printf "\n\tE: Failed to enable $localhost-ssl\n"
+fi
+
+endm="
+****** Successfully reloaded apache2 ******
+******* Visit Site *******
+    "
+if ! $ssl_only; then
+    endm="${endm}http://$localhost/info.php
+    "
+fi
+if $ssl; then 
+    endm="${endm}https://$localhost/info.php
+    "
+fi
+
+#restart the apache2 service
+{
+service apache2 restart ||
+systemctl restart apache2
+} &&
+echo "$endm" ||
+echo "\n\tE: Failed to restart apache2\n"
