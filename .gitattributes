@@ -1,0 +1,10 @@
+*.md linguist-documentation
+*.sh linguist-vendored
+/test/* linguist-vendored
+*.txt linguist-documentation
+*.csr linguist-vendored
+*.list linguist-vendored
+*.json linguist-vendored
+*.crt linguist-vendored
+*.log linguist-vendored
+*.key linguist-vendored

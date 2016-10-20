@@ -1,0 +1,154 @@
+#!/bin/bash
+set -e
+
+ver='0.0.2'
+auth='Md. Jahidul Hamid'
+bug='https://github.com/neurobin/gencsr/issues'
+ver_info="
+######### gencsr (CSR generator) #############
+Version:        $ver
+Author:         $auth
+Bug Tracker:    $bug
+"
+
+help="
+######### gencsr (CSR generator) #############
+Usage:
+  gencsr [options]
+Options:
+  -df  | --dom-file : file containing domain per line
+  -k   | --key      : private key file
+  -ks  | --key-size : key size
+  -csr | --csr      : CSR file
+  -c   | --conf     : configuration file
+  -n   | --new      : Always create new
+  -h   | --help     : show help
+  -v   | --version  : show version info
+"
+
+
+domfile=dom.list    # Path to file containing domain names per line
+dkeyfile=dom.key    # Path to a private key file (to be created)
+csrfile=dom.csr     # Path to the CSR file (to be created)
+conf=gencsr.conf    # Configuration file
+key_size=4096       # key size
+new=false           # if true, gencsr will always create new files without using existing ones
+
+
+err(){
+    echo "E: $@" >>/dev/stderr
+}
+
+get_arg(){
+    if [ -z "$1" ]; then
+        err 'Arg missing!'
+        exit 1
+    else
+        echo "$1"
+    fi
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+            -df|--dom-file)
+            domfile="$(get_arg "$2")"
+            shift
+            ;;
+            -k|--key)
+            dkeyfile="$(get_arg "$2")"
+            shift
+            ;;
+
+            -csr|--csr)
+            csrfile="$(get_arg "$2")"
+            shift
+            ;;
+            -c|--conf)
+            conf="$(get_arg "$2")"
+            shift
+            ;;
+            -ks|--key-size)
+            key_size="$(get_arg "$2")"
+            if [[ ! "$key_size" =~ ^[0-9]+$ ]]; then
+                err "Invalid key size: $key_size"
+                exit 1
+            fi
+            shift
+            ;;
+            -n|--new)
+            new=true
+            ;;
+            -h|--help)
+            echo "$help"
+            exit 0
+            ;;
+            -v|--version)
+            echo "$ver_info"
+            exit 0
+            ;;
+            *)
+            err "Invalid arg: $1"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+if [ ! -f "$dkeyfile" ] || $new; then
+    echo 'Creating new key file: '"$dkeyfile"
+    if openssl genrsa $key_size > "$dkeyfile"; then
+        echo 'Successfully created key file: '"$dkeyfile"
+    else
+        err "Failed to created key file: $dkeyfile"
+        exit 1
+    fi
+else
+    echo "Using existing key file: $dkeyfile"
+fi
+
+CN="$(head -1 "$domfile")"
+subjectAltName="$(sed -e '/^[[:blank:]]*$/d' \
+    -e 's/^[[:blank:]]*//' \
+    -e 's/[[:blank:]]*$//' \
+    -e 's/^/DNS:/' "$domfile" |
+    tr '\n' ',')"
+subjectAltName="${subjectAltName/%,/}"
+
+country_code="$(sed -n -e 's/^[[:blank:]]*CountryCode[[:blank:]]*=[[:blank:]]*\([^#]*\).*$/\1/pi' "$conf" |sed -e 's/[[:blank:]]*$//')"
+state="$(sed -n -e 's/^[[:blank:]]*State[[:blank:]]*=[[:blank:]]*\([^#]*\).*$/\1/pi' "$conf" |sed -e 's/[[:blank:]]*$//')"
+locality="$(sed -n -e 's/^[[:blank:]]*Locality[[:blank:]]*=[[:blank:]]*\([^#]*\).*$/\1/pi' "$conf" |sed -e 's/[[:blank:]]*$//')"
+org="$(sed -n -e 's/^[[:blank:]]*Oraganization[[:blank:]]*=[[:blank:]]*\([^#]*\).*$/\1/pi' "$conf" |sed -e 's/[[:blank:]]*$//')"
+org_unit="$(sed -n -e 's/^[[:blank:]]*OraganizationUnit[[:blank:]]*=[[:blank:]]*\([^#]*\).*$/\1/pi' "$conf" |sed -e 's/[[:blank:]]*$//')"
+email="$(sed -n -e 's/^[[:blank:]]*Email[[:blank:]]*=[[:blank:]]*\([^#]*\).*$/\1/pi' "$conf" |sed -e 's/[[:blank:]]*$//')"
+
+subj="/CN=$CN"
+
+if [ -n "$country_code" ]; then
+    subj="$subj/C=$country_code"
+fi
+
+if [ -n "$state" ]; then
+    subj="$subj/ST=$state"
+fi
+
+if [ -n "$locality" ]; then
+    subj="$subj/L=$locality"
+fi
+
+if [ -n "$org" ]; then
+    subj="$subj/O=$org"
+fi
+
+if [ -n "$org_unit" ]; then
+    subj="$subj/OU=$org_unit"
+fi
+
+if [ -n "$email" ]; then
+    subj="$subj/emailAddress=$email"
+fi
+
+if openssl req -new -sha256 -key "$dkeyfile" -subj "$subj" -reqexts SAN -config <(cat /etc/ssl/openssl.cnf  <(printf "[SAN]\nsubjectAltName=$subjectAltName")) -out "$csrfile"; then
+    echo "Successfully created CSR file: $csrfile"
+else
+    err 'Failed to create CSR file!'
+fi
