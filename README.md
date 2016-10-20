@@ -435,7 +435,7 @@ For <a href="#work-around">3.3</a> workaround, change the AcmeDir to `/var/www/c
 
 
 #Test suit:
-The test directory contains a simple Bash script named **check.sh**. When run, it creates two local dummy sites and <span class="warning">exposes them on Internet (publicly, be ware)</span> using ngrok, then creates account key, CSR for these two sites and gets the cert (one cert). The location of these two sites are /home/user/letsacme-host1 and /home/user/letsacme-host2. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
+The test directory contains a simple Bash script named **check.sh**. When run, it creates two local dummy sites and <span class="warning">exposes them on Internet (publicly, be ware)</span> using ngrok, then creates account key, dom.key, CSR for these two sites and gets the cert (one cert). The location of these two sites are */home/user/letsacme-host1* and */home/user/letsacme-host2*. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
 
 Part of this script requires root privilege.
 
@@ -450,14 +450,14 @@ This script depends on various other scripts. An **inst.sh** file is provided to
 5. [gencsr](https://github.com/neurobin/gencsr)
 6. [lampi](https://github.com/neurobin/lampi)
 
-**On Ubuntu** you can get the dependencies by running the inst.sh scipt:
+**On Ubuntu** you can get the dependencies by running the *inst.sh* script:
 
 ```sh
 chmod +x ./test/inst.sh
 chmod +x ./test/inst.sh
 ```
 
-**On other Debian based Os** you can do:
+**On other Debian based OS** you can do:
 
 ```
 chmod +x ./test/inst.sh
