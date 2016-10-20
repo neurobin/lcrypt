@@ -217,6 +217,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
         challenge = [c for c in json.loads(result.decode('utf8'))['challenges'] if c['type'] == "http-01"][0]
         token = re.sub(r"[^A-Za-z0-9_\-]", "_", challenge['token'])
         keyauthorization = "{0}.{1}".format(token, thumbprint)
+        wellknown_url = None
         if 'validationRecord' in challenge:
             for item in challenge['validationRecord']:
                 if 'url' in item:
@@ -268,7 +269,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
             log.error(str(e));sys.exit(1)
             
         # check that the file is in place
-        if not 'wellknown_url' in locals():
+        if not wellknown_url:
             wellknown_url = ("http://{0}/"+challenge_dir+"/{1}").format(domain, token)
         try:
             resp = urlopen(wellknown_url)
