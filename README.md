@@ -3,7 +3,7 @@
 
 The **letsacme** script automates the process of getting a signed TLS/SSL certificate from Let's Encrypt using the ACME protocol. It will need to be run on your server and have **access to your private account key**. It gets both the certificate and the chain (CABUNDLE) and prints them on stdout unless specified otherwise.
 
-**PLEASE READ THE SOURCE CODE (~400 LINE)! YOU MUST TRUST IT WITH YOUR PRIVATE KEYS!**
+**PLEASE READ THE SOURCE CODE! YOU MUST TRUST IT WITH YOUR PRIVATE KEYS!**
 
 #Dependencies:
 1. Python
