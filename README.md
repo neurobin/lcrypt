@@ -465,5 +465,10 @@ chmod +x ./test/inst.sh
 ```
 to get everything except LAMP. You need to install LAMP for your particular flavor manually.
 
+After getting the dependencies, you can run **check.sh** to perform the test:
 
+```sh
+chmod +x ./test/check.sh
+./test/check.sh
+```
 
