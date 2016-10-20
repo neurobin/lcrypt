@@ -15,5 +15,5 @@ python:
 #command to install dependencies
 install: "pip install -r requirements.txt"
 # command to run tests
-script: pylint letsacme.py;if [ "$(python --version 2>&1)" = "Python 2.6.9" ]; then echo 'pylint is broken in 2.6. pylint error for 2.6 should be ignored';elif [ ! $? -eq 1 ]; then echo 'pylint success!';else false; fi
+script: pylint letsacme.py;if [ ! $? -eq 1 ]; then echo 'pylint success!';elif [ "$(python --version 2>&1)" = "Python 2.6.9" ]; then echo 'pylint is broken in 2.6. pylint error for 2.6 should be ignored';else false; fi
 
