@@ -432,3 +432,38 @@ Another full-fledged JSON file using only a single AcmeDir as challenge director
 The above JSON is exactly for the scenario where you are using it in acme-tiny compatible mode or using the <a href="#work-around">3.3</a> workaround for shared servers.
 
 For <a href="#work-around">3.3</a> workaround, change the AcmeDir to `/var/www/challenge/challenge` where `/var/www/challenge` is the document root of your dedicated http site (challenge.example.com); in that way you can use the exact redirection code mentioned in section <a href="#work-around">3.3</a>.
+
+
+#Test suit:
+The test directory contains a simple Bash script named **check.sh**. When run, it creates two local dummy sites and <span class="warning">exposes them on Internet (publicly, be ware)</span> using ngrok, then creates account key, CSR for these two sites and gets the cert (one cert). The location of these two sites are /home/user/letsacme-host1 and /home/user/letsacme-host2. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
+
+Part of this script requires root privilege.
+
+This script depends on various other scripts. An **inst.sh** file is provided to install/download the dependencies.
+
+**Dependencies:**
+
+1. Debian based OS
+2. LAMP
+3. jq
+4. ngrok
+5. [gencsr](https://github.com/neurobin/gencsr)
+6. [lampi](https://github.com/neurobin/lampi)
+
+**On Ubuntu** you can get the dependencies by running the inst.sh scipt:
+
+```sh
+chmod +x ./test/inst.sh
+chmod +x ./test/inst.sh
+```
+
+**On other Debian based Os** you can do:
+
+```
+chmod +x ./test/inst.sh
+chmod +x ./test/inst.sh -d
+```
+to get everything except LAMP. You need to install LAMP for your particular flavor manually.
+
+
+

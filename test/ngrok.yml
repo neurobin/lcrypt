@@ -1,0 +1,8 @@
+tunnels:
+  dom1:
+    proto: http
+    addr: 80
+    web_addr: 4040
+  dom2:
+    proto: http
+    addr: 80
