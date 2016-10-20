@@ -454,14 +454,14 @@ This script depends on various other scripts. An **inst.sh** file is provided to
 
 ```sh
 chmod +x ./test/inst.sh
-chmod +x ./test/inst.sh
+./test/inst.sh
 ```
 
 **On other Debian based OS** you can do:
 
 ```
 chmod +x ./test/inst.sh
-chmod +x ./test/inst.sh -d
+./test/inst.sh -d
 ```
 to get everything except LAMP. You need to install LAMP for your particular flavor manually.
 
