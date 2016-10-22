@@ -444,7 +444,7 @@ This script depends on various other scripts. An **inst.sh** file is provided to
 **Dependencies:**
 
 1. Debian based OS
-2. LAMP
+2. Apache2 server
 3. jq
 4. ngrok
 5. [gencsr](https://github.com/neurobin/gencsr)
@@ -455,7 +455,7 @@ You can get the dependencies by running the *inst.sh* script:
 chmod +x ./test/inst.sh
 ./test/inst.sh
 ```
-If you already have LAMP installed, then just install jq. Then download and unzip [ngrok](wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -O ngrok-stable-linux-amd64.zip) (see inst.sh file) in the test directory.
+If you already have Apache2 server installed, then just install jq. Then download and unzip [ngrok](wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -O ngrok-stable-linux-amd64.zip) (see inst.sh file) in the test directory.
 
 After getting the dependencies, you can run **check.sh** to perform the test:
 
@@ -466,4 +466,6 @@ chmod +x ./test/check.sh
 
 **Do not run the ./test/travis_check.sh on your local machine.** It's written for [travis build](https://travis-ci.org/neurobin/letsacme) only and contains 
 unguarded code that can harm your system.
+
+If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page](https://travis-ci.org/neurobin/letsacme). That test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (<a href="#work-around">3.3</a>.).
 
