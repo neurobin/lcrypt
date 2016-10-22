@@ -447,9 +447,7 @@ This script depends on various other scripts. An **inst.sh** file is provided to
 2. LAMP
 3. jq
 4. ngrok
-5. nohup
 5. [gencsr](https://github.com/neurobin/gencsr)
-6. [lampi](https://github.com/neurobin/lampi)
 
 You can get the dependencies by running the *inst.sh* script:
 
@@ -457,6 +455,8 @@ You can get the dependencies by running the *inst.sh* script:
 chmod +x ./test/inst.sh
 ./test/inst.sh
 ```
+If you already have LAMP installed, then just download jq and ngrok (see inst.sh file) in the test directory.
+
 After getting the dependencies, you can run **check.sh** to perform the test:
 
 ```sh
