@@ -1,19 +1,21 @@
 sudo: required
 dist: trusty
 language: python
-before_install:
-    - sudo apt-get update
-    - sudo apt-get install pylint
 python:
   - "2.6"
-  - "2.7"
-  - "3.3"
-  - "3.4"
-  - "3.5"
-  - "3.5-dev"
-  - "nightly"
+#  - "2.7"
+#  - "3.2"
+#  - "3.3"
+#  - "3.4"
+#  - "3.5"
+#  - "3.5-dev" # 3.5 development branch
+#  - "nightly" # currently points to 3.6-dev
 #command to install dependencies
-install: "pip install -r requirements.txt"
+#install: "pip install -r requirements.txt"
 # command to run tests
-script: pylint letsacme.py;if [ ! $? -eq 1 ]; then echo 'pylint success!';elif [ "$(python --version 2>&1)" = "Python 2.6.9" ]; then echo 'pylint is broken in 2.6. pylint error for 2.6 should be ignored';else false; fi
+install: "pip install pylint"
+before_script: ./test/inst.sh
+script: 
+ - pylint letsacme.py 2>/dev/null;if [ ! $? -eq 1 ]; then echo 'pylint success!';elif [ "$(python --version 2>&1)" = "Python 2.6.9" ]; then printf '\n\npylint is broken in 2.6. pylint error for 2.6 should be ignored\n\n';else false; fi
+ - ./test/travis_check.sh
 

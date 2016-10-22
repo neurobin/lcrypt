@@ -28,13 +28,17 @@ try: # Python 3
     from urllib.request import urlopen
     from urllib.request import build_opener
     from urllib.request import HTTPRedirectHandler
+    from urllib.error import HTTPError
+    from urllib.error import URLError
 except ImportError:  # Python 2
     from urllib2 import urlopen
     from urllib2 import HTTPRedirectHandler
     from urllib2 import build_opener
+    from urllib2 import HTTPError
+    from urllib2 import URLError
 
 ##################### letsacme info #####################
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 VERSION_INFO = "letsacme version: "+VERSION
 ##################### API info ##########################
 CA_VALID = "https://acme-v01.api.letsencrypt.org"
@@ -47,105 +51,98 @@ NEW_AUTHZ_KEY = 'new-authz'
 ##################### Defaults ##########################
 DEFAULT_CA = CA_VALID
 API_INFO = set({})
-CHALLENGE_DIR = ".well-known/acme-challenge" # used as a fallback in DocumentRoot method
+WELL_KNOWN_DIR = ".well-known/acme-challenge" # used as a fallback in DocumentRoot method
 ##################### Logger ############################
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 #########################################################
 
+def error_exit(msg, log):
+    """Print error message and exit with 1 exit status"""
+    log.error(msg)
+    sys.exit(1)
+
 def get_canonical_url(url, log):
-    """
-    Follow redirect and return the canonical URL
-    """
+    """Follow redirect and return the canonical URL"""
     try:
         opener = build_opener(HTTPRedirectHandler)
         request = opener.open(url)
         return request.url
-    except Exception as e:
-        log.error(str(e))
+    except (URLError, HTTPError) as err:
+        log.error(str(err))
         return url
 
 def get_boolean_options_from_json(conf_json, ncn, ncrt, tst, frc):
-    """
-    Parse config json for boolean options and return them sequentially
-    """
-    keys = ['NoChain', 'NoCert', 'Test', 'Force']
-    pvalue = [ncn, ncrt, tst, frc]
-    value = []
-    for i, key in enumerate(keys, start=0):
-        if not pvalue[i]:
-            if key in conf_json:
-                if conf_json[key]:
-                    if conf_json[key].lower() == "true":
-                        value.append(True)
-                    else: value.append(False)
-                else: value.append(False)
-            else: value.append(False)
-        else: value.append(pvalue[i])
-    return value[0], value[1], value[2], value[3]
+    """Parse config json for boolean options and return them sequentially
+    It takes prioritised values as params. Among these values, non-None/False values are
+    reserved and it's value in config json is ignored."""
+    opt = {'NoChain':ncn, 'NoCert':ncrt, 'Test':tst, 'Force':frc}
+    for key in opt:
+        if not opt[key] and key in conf_json and conf_json[key].lower() == "true":
+            opt[key] = True
+            continue
+    return opt['NoChain'], opt['NoCert'], opt['Test'], opt['Force']
 
-def get_options_from_json(conf_json, ac, csr, acmd, crtf, chnf, ca):
-    """
-    Parse key-value options from config json and return the values sequentially
-    """
-    keys = ['AccountKey', 'CSR', 'AcmeDir', 'CertFile', 'ChainFile', 'CA']
-    pvalue = [ac, csr, acmd, crtf, chnf, ca]
-    value = []
-    for i, key in enumerate(keys, start=0):
-        if not pvalue[i]:
-            if key in conf_json:
-                if conf_json[key]:
-                    value.append(conf_json[key])
-                else: value.append(None)
-            else: value.append(None)
-        else: value.append(pvalue[i])
-    return value[0], value[1], value[2], value[3], value[4], value[5]
+def get_options_from_json(conf_json, ack, csr, acmd, crtf, chnf, ca):
+    """Parse key-value options from config json and return the values sequentially
+    It takes prioritised values as params. Among these values, non-None values are
+    reserved and it's value in config json is ignored."""
+    opt = {'AccountKey':ack, 'CSR':csr, 'AcmeDir':acmd, 'CertFile':crtf, 'ChainFile':chnf, 'CA':ca}
+    for key in opt:
+        if not opt[key] and key in conf_json and conf_json[key]:
+            opt[key] = conf_json[key]
+            continue
+        opt[key] = None if opt[key] == '' or opt[key] == '.' or opt[key] == '..' else opt[key]
+    return opt['AccountKey'], opt['CSR'], opt['AcmeDir'], opt['CertFile'], opt['ChainFile'],\
+           opt['CA']
 
 def get_chain(url, log):
-    """
-    Download chain from chain url and return it
-    """
+    """Download chain from chain url and return it"""
     resp = urlopen(url)
     if resp.getcode() != 200:
-        log.error("E: Failed to fetch chain (CABUNDLE) from: "+url)
-        sys.exit(1)
+        error_exit("E: Failed to fetch chain (CABUNDLE) from: "+url, log)
     return """-----BEGIN CERTIFICATE-----\n{0}\n-----END CERTIFICATE-----\n""".format(
         "\n".join(textwrap.wrap(base64.b64encode(resp.read()).decode('utf8'), 64)))
 
-def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force):
-    """
-    Register account, parse CSR, complete challenges and finally
-    get the signed SSL certificate and return it.
-    """
-    # helper function base64 encode for jose spec
-    def _b64(b):
-        return base64.urlsafe_b64encode(b).decode('utf8').replace("=", "")
+def write_file(path, content, log, exc=True):
+    """Write content to the file specified by path"""
+    try:
+        with open(path, "w") as fileh:
+            fileh.write(content)
+    except IOError as err:
+        log.error(str(err))
+        if exc:
+            sys.exit(1)
+
+
+def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, force):
+    """Register account, parse CSR, complete challenges and finally
+    get the signed SSL certificate and return it."""
+    def _b64(bcont):
+        """helper function base64 encode for jose spec"""
+        return base64.urlsafe_b64encode(bcont).decode('utf8').replace("=", "")
 
     def make_dirs(path):
-        """
-        Make directories including parent directories (if not exist)
-        """
+        """Make directories including parent directories (if not exist)"""
         try:
             os.makedirs(path)
-        except OSError as exception:
-            if exception.errno != errno.EEXIST:
-                log.error(str(exception))
-                sys.exit(1)
+        except OSError as err:
+            if err.errno != errno.EEXIST:
+                error_exit(str(err), log)
 
     # get challenge directory from json by domain name
-    def get_challenge_dir(conf_json, dom):
-        """
-        Get the challenge directory path from config json
-        """
-        if dom not in conf_json:
-            if dom.startswith("www."):
-                dom1 = re.sub("^www\\.", "", dom)
-            else:
-                dom1 = "www."+dom
-            if dom1 in conf_json:
-                dom = dom1
-        try:
+    def get_challenge_dir(conf_json, dom, acmed):
+        """Get the challenge directory path from config json"""
+        if conf_json:
+            if dom not in conf_json:
+                if re.match(r'www\w*\.', dom):
+                    dom1 = re.sub(r"^www\w*\.", "", dom)
+                else:
+                    dom1 = "www."+dom
+                if dom1 in conf_json:
+                    dom = dom1
+            # no else
             if dom in conf_json:
                 if 'AcmeDir' in conf_json[dom]:
                     return None, conf_json[dom]['AcmeDir']
@@ -156,22 +153,12 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                 return None, conf_json['AcmeDir']
             elif 'DocumentRoot' in conf_json:
                 return conf_json['DocumentRoot'], None
-            else:
-                log.error("E: There is no valid entry for \"DocumentRoot\" or \"AcmeDir\" in\n" +
-                          json.dumps(conf_json[dom], indent=4, sort_keys=True))
-                sys.exit(1)
-            if not os.path.exists(doc_root) and (doc_root != ""):
-                log.error("E: Document Root: "+doc_root+" doesn't exist")
-                sys.exit(1)
-        except KeyError:
-            log.error("E: There is no entry for "+dom+" in\n" +
-                      json.dumps(conf_json, indent=4, sort_keys=True))
-            sys.exit(1)
-        except Exception as e:
-            log.error("E: Could not get a valid Document Root or Acme Dir for \"" +
-                      dom+"\" from: \n" +json.dumps(conf_json, indent=4, sort_keys=True)+
-                      '\n'+str(e))
-            sys.exit(1)
+        elif acmed:
+            return None, acmed
+        else:
+            error_exit("E: There is no valid entry for \"DocumentRoot\" or \"AcmeDir\" for \
+                       the domain '"+dom+"' in\n" +
+                       json.dumps(conf_json, indent=4, sort_keys=True), log)
 
     # parse account key to get public key
     log.info("Parsing account key...")
@@ -179,8 +166,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        log.error("\tOpenSSL Error: {0}".format(err))
-        sys.exit(1)
+        error_exit("\tOpenSSL Error: {0}".format(err), log)
     pub_hex, pub_exp = re.search(
         r"modulus:\n\s+00:([a-f0-9\:\s]+?)\npublicExponent: ([0-9]+)",
         out.decode('utf8'), re.MULTILINE|re.DOTALL).groups()
@@ -210,8 +196,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                                 stderr=subprocess.PIPE)
         out, err = proc.communicate("{0}.{1}".format(protected64, payload64).encode('utf8'))
         if proc.returncode != 0:
-            log.error("OpenSSL Error: {0}".format(err))
-            sys.exit(1)
+            error_exit("OpenSSL Error: {0}".format(err), log)
         data = json.dumps({
             "header": header, "protected": protected64,
             "payload": payload64, "signature": _b64(out),
@@ -219,9 +204,9 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
         try:
             resp = urlopen(url, data.encode('utf8'))
             return resp.getcode(), resp.read(), resp.info()
-        except IOError as e:
-            return getattr(e, "code", None), getattr(e, "read", e.__str__), getattr(e, "info",
-                                                                                    None)()
+        except IOError as err:
+            return getattr(err, "code", None), getattr(err, "read", err.__str__),\
+                           getattr(err, "info", None)()
 
     crt_info = set([])
 
@@ -231,8 +216,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        log.error("\tError loading {0}: {1}".format(csr, err))
-        sys.exit(1)
+        error_exit("\tError loading {0}: {1}".format(csr, err), log)
     domains = set([])
     common_name = re.search(r"Subject:.*? CN=([^\s,;/]+)", out.decode('utf8'))
     if common_name is not None:
@@ -258,8 +242,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
     elif code == 409:
         log.info("\tAlready registered!")
     else:
-        log.error("\tError registering: {0} {1}".format(code, result))
-        sys.exit(1)
+        error_exit("\tError registering: {0} {1}".format(code, result), log)
     # verify each domain
     for domain in domains:
         log.info("Verifying {0}...".format(domain))
@@ -270,8 +253,7 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
             "identifier": {"type": "dns", "value": domain},
         })
         if code != 201:
-            log.error("\tError requesting challenges: {0} {1}".format(code, result))
-            sys.exit(1)
+            error_exit("\tError requesting challenges: {0} {1}".format(code, result), log)
 
         # create the challenge file
         challenge = [c for c in json.loads(result.decode('utf8'))['challenges'] \
@@ -284,37 +266,26 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                 if 'url' in item:
                     res_m = re.match('.*://'+domain+r'/([\w\W]*)/'+token, item['url'])
                     if res_m:
-                        challenge_dir = res_m.group(1)
+                        well_known_dir = res_m.group(1)
                         wellknown_url = res_m.group(0)
-                        log.info('\tWell known path was parsed: '+challenge_dir)
+                        log.info('\tWell known path was parsed: '+well_known_dir)
         # paranoid check
-        token = token.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
-         # the number 4 (3 is enough) takes account for .. scenerio
-        if not re.match("^[^"+os.path.sep+"/\\\\"+(os.path.altsep or "")+"]{4,}$", token):
-            log.error("\tE: Invalid and possibly dangerous token.")
-            sys.exit(1)
+        if os.path.sep in token or (os.path.altsep or '\\') in token or not token:
+            error_exit("\tE: Invalid and possibly dangerous token.", log)
         # take either acme-dir or document dir method
-        if acme_dir and not conf_json:
-            make_dirs(acme_dir)  # create the challenge dir if not exists
-            wellknown_path = os.path.join(acme_dir, token)
-        elif conf_json:
-            doc_root, acme_dir = get_challenge_dir(conf_json, domain)
-            if doc_root:
-                chlng_dir = challenge_dir.strip(os.path.sep+"/\\"+(os.path.altsep or ""))
-                # create the challenge dir if not exists
-                make_dirs(os.path.join(doc_root, chlng_dir))
-                wellknown_path = os.path.join(doc_root, chlng_dir, token)
-            elif acme_dir:
-                # create the challenge dir if not exists
-                make_dirs(acme_dir)
-                wellknown_path = os.path.join(acme_dir, token)
-            else:
-                log.error("\tCouldn't get DocumentRoot or AcmeDir from: \n"+
-                          json.dumps(conf_json, indent=4, sort_keys=True))
-                sys.exit(1)
+        doc_root, acme_dir = get_challenge_dir(conf_json, domain, acme_dir)
+        if acme_dir:
+            chlng = acme_dir.rstrip(os.path.sep+(os.path.altsep or "\\"))
+            make_dirs(chlng)
+            wellknown_path = os.path.join(chlng, token)
+        elif doc_root:
+            doc_root = doc_root.rstrip(os.path.sep+(os.path.altsep or "\\"))
+            chlng = os.path.join(doc_root, well_known_dir.strip(os.path.sep+\
+                                         (os.path.altsep or "\\")))
+            make_dirs(chlng)
+            wellknown_path = os.path.join(chlng, token)
         else:
-            log.error("\tChallenge directory not given")
-            sys.exit(1)
+            error_exit("\tCouldn't get DocumentRoot or AcmeDir for domain: "+domain, log)
         # another paranoid check
         if os.path.isdir(wellknown_path):
             log.warning("\tW: "+wellknown_path+" exists.")
@@ -328,35 +299,27 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
                         # though it itself is inside a paranoid check
                         # which will probably never be reached
                         log.info("\tRemoved "+wellknown_path)
-                    except Exception as e:
-                        log.error("\tE: Failed to remove "+wellknown_path+'\n'+str(e))
-                        sys.exit(1)
+                    except OSError as err:
+                        error_exit("\tE: Failed to remove "+wellknown_path+'\n'+str(err), log)
                 else:
-                    log.error("\tE: "+wellknown_path+" is a directory. \
-                              It shouldn't even exist in normal cases. \
-                              Try --force option if you are sure about \
-                              deleting it and all of its' content")
-                    sys.exit(1)
-        try:
-            with open(wellknown_path, "w") as wellknown_file:
-                wellknown_file.write(keyauthorization)
-                #log.info("\tChallenge path: "+wellknown_path+"\n\tAuth: "+keyauthorization)
-        except Exception as e:
-            log.error(str(e))
-            sys.exit(1)
+                    error_exit("\tE: "+wellknown_path+" is a directory. \
+                               It shouldn't even exist in normal cases. \
+                               Try --force option if you are sure about \
+                               deleting it and all of its' content", log)
+
+        write_file(wellknown_path, keyauthorization, log)
 
         # check that the file is in place
         if not wellknown_url:
-            wellknown_url = ("http://{0}/"+challenge_dir+"/{1}").format(domain, token)
+            wellknown_url = ("http://{0}/"+well_known_dir+"/{1}").format(domain, token)
         try:
             resp = urlopen(wellknown_url)
             resp_data = resp.read().decode('utf8').strip()
             assert resp_data == keyauthorization
         except (IOError, AssertionError):
             os.remove(wellknown_path)
-            log.error("\tWrote file to {0}, but couldn't download {1}".format(
-                wellknown_path, wellknown_url))
-            sys.exit(1)
+            error_exit("\tWrote file to {0}, but couldn't download {1}".format(\
+                       wellknown_path, wellknown_url), log)
 
         # notify challenge is met
         code, result, crt_info = _send_signed_request(challenge['uri'], {
@@ -364,36 +327,32 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
             "keyAuthorization": keyauthorization,
         })
         if code != 202:
-            log.error("\tError triggering challenge: {0} {1}".format(code, result.read()))
             os.remove(wellknown_path)
-            sys.exit(1)
+            error_exit("\tError triggering challenge: {0} {1}".format(code, result.read()), log)
 
         # wait for challenge to be verified
         while True:
             try:
                 resp = urlopen(challenge['uri'])
                 challenge_status = json.loads(resp.read().decode('utf8'))
-            except IOError as e:
-                log.error("\tError checking challenge: {0} {1}\n{2}".format(
-                    resp.code, json.dumps(resp.read().decode('utf8'), indent=4), str(e)))
+            except IOError as err:
                 os.remove(wellknown_path)
-                sys.exit(1)
+                error_exit("\tError checking challenge: {0} {1}\n{2}".format(\
+                           resp.code, json.dumps(resp.read().decode('utf8'),\
+                           indent=4), str(err)), log)
             if challenge_status['status'] == "pending":
                 time.sleep(2)
             elif challenge_status['status'] == "valid":
-                log.info("\tverified!")
                 os.remove(wellknown_path)
+                log.info("\tverified!")
                 break
             else:
-                log.error("\t{0} challenge did not pass: {1}".format(
-                    domain, challenge_status))
                 os.remove(wellknown_path)
-                sys.exit(1)
+                error_exit("\t{0} challenge did not pass: {1}".format(\
+                           domain, challenge_status), log)
 
     # get the new certificate
-    if CA == CA_TEST:
-        test_mode = " (test mode)"
-    else: test_mode = ""
+    test_mode = " (test mode)" if CA == CA_TEST else ""
     log.info("Signing certificate..."+test_mode)
     proc = subprocess.Popen(["openssl", "req", "-in", csr, "-outform", "DER"],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -403,16 +362,12 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
         "csr": _b64(csr_der),
     })
     if code != 201:
-        log.error("\tError signing certificate: {0} {1}".format(code, result))
-        sys.exit(1)
+        error_exit("\tError signing certificate: {0} {1}".format(code, result), log)
 
     log.info('\tParsing chain url...')
     res_m = re.match("\\s*<([^>]+)>;rel=\"up\"", crt_info['Link'])
-    if res_m:
-        chain_url = res_m.group(1)
-        log.info('\tParsed chain url')
-    else:
-        chain_url = None
+    chain_url = res_m.group(1) if res_m else None
+    if not chain_url:
         log.error('\tW: Failed to parse chain url!')
 
     # return signed certificate!
@@ -422,7 +377,6 @@ def get_crt(account_key, csr, conf_json, challenge_dir, acme_dir, log, CA, force
 
 def main(argv):
     """
-    main function
     Parse arguments and run helper functions to get the certs
     """
     parser = argparse.ArgumentParser(
@@ -447,9 +401,9 @@ def main(argv):
                         Must contain \"DocumentRoot\":\"/path/to/document/root\" entry \
                         for each domain.")
     parser.add_argument("--acme-dir", default=None, help="Path to the acme challenge directory")
-    parser.add_argument("--cert-file", default="", help="File to write the certificate to. \
+    parser.add_argument("--cert-file", default=None, help="File to write the certificate to. \
                         Overwrites if file exists.")
-    parser.add_argument("--chain-file", default="", help="File to write the certificate to. \
+    parser.add_argument("--chain-file", default=None, help="File to write the certificate to. \
                         Overwrites if file exists.")
     parser.add_argument("--quiet", action="store_const", const=logging.ERROR, help="Suppress \
                         output except for errors.")
@@ -469,10 +423,9 @@ def main(argv):
                         info.")
 
     args = parser.parse_args(argv)
-    LOGGER.setLevel(args.quiet or LOGGER.level)
-    if not args.config_json:
-        if not args.acme_dir:
-            parser.error("One of --config-json or --acme-dir must be given")
+    LOGGER.setLevel(logging.ERROR if args.quiet else LOGGER.level)
+    if not args.config_json and not args.acme_dir:
+        parser.error("One of --config-json or --acme-dir must be given")
 
     # parse config_json
     conf_json = None
@@ -481,20 +434,16 @@ def main(argv):
         # config_json can point to a file too.
         if os.path.isfile(args.config_json):
             try:
-                with open(args.config_json, "r") as f:
-                    config_json_s = f.read()
-            except Exception as e:
-                LOGGER.error("E: Failed to read json file: "+args.config_json+"\n"+str(e))
-                sys.exit(1)
+                with open(args.config_json, "r") as fileh:
+                    config_json_s = fileh.read()
+            except IOError as err:
+                error_exit("E: Failed to read json file: "+args.config_json+"\n"+str(err),
+                           LOGGER)
         # Now we are sure that config_json_s is a json string, not file
         try:
             conf_json = json.loads(config_json_s)
-        except Exception as e:
-            LOGGER.error("E: Failed to parse json"+"\n"+str(e))
-            sys.exit(1)
-
-    # get options from JSON
-    if args.config_json:
+        except ValueError as err:
+            error_exit("E: Failed to parse json"+"\n"+str(err), log=LOGGER)
         args.account_key, args.csr, args.acme_dir, args.cert_file,\
         args.chain_file, args.ca = get_options_from_json(conf_json,
                                                          args.account_key,
@@ -507,46 +456,39 @@ def main(argv):
                     get_boolean_options_from_json(conf_json, args.no_chain,
                                                   args.no_cert, args.test, args.force)
 
-    if not args.quiet:
-        if conf_json and 'Quiet' in conf_json:
-            LOGGER.warning("--quiet can not be passed inside configuration JSON.\
-                           It will be ignored.")
+    if not args.quiet and conf_json and 'Quiet' in conf_json:
+        LOGGER.warning("--quiet can not be passed inside configuration JSON.\
+                       It will be ignored.")
 
     # show error in case args are missing
     if not args.account_key:
-        LOGGER.error("E: Account key path not specified.")
-        sys.exit(1)
+        error_exit("E: Account key path not specified.", LOGGER)
     if not args.csr:
-        LOGGER.error("E: CSR path not specified")
-        sys.exit(1)
+        error_exit("E: CSR path not specified", LOGGER)
     if not args.config_json and not args.acme_dir:
-        LOGGER.error("E: Either --acme-dir or --config-json must be given")
-        sys.exit(1)
+        error_exit("E: Either --acme-dir or --config-json must be given", log=LOGGER)
     # we need to set a default CA if not specified
     if not args.ca:
-        if args.test: args.ca = CA_TEST
-        else: args.ca = DEFAULT_CA
+        args.ca = CA_TEST if args.test else DEFAULT_CA
 
     global API_INFO # this is where we will pull our information from
     API_INFO = json.loads(urlopen(args.ca+'/'+API_DIR_NAME).read().decode('utf8'))
 
     # lets do the main task
     signed_crt, chain_url = get_crt(args.account_key, args.csr,
-                                    conf_json, challenge_dir=CHALLENGE_DIR,
+                                    conf_json, well_known_dir=WELL_KNOWN_DIR,
                                     acme_dir=args.acme_dir, log=LOGGER,
                                     CA=args.ca, force=args.force)
 
     if args.cert_file:
-        with open(args.cert_file, "w") as f:
-            f.write(signed_crt)
+        write_file(args.cert_file, signed_crt, LOGGER, False)
     if not args.no_cert:
         sys.stdout.write(signed_crt)
 
     if chain_url:
         chain = get_chain(chain_url, log=LOGGER)
         if args.chain_file:
-            with open(args.chain_file, "w") as f:
-                f.write(chain)
+            write_file(args.chain_file, chain, LOGGER, False)
         if not args.no_chain:
             sys.stdout.write(chain)
 
