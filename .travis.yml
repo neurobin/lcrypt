@@ -17,6 +17,9 @@ install:
 before_script: ./test/inst.sh
 # command to run tests
 script: 
- - pylint letsacme.py 2>/dev/null;if [ ! $? -eq 1 ]; then echo 'pylint success!';elif [ "$(python --version 2>&1)" = "Python 2.6.9" ]; then printf '\n\npylint is broken in 2.6. pylint error for 2.6 should be ignored\n\n';else false; fi
+ - pv="$(python --version 2>&1)"
+ - pv1="Python 2.6"
+ - pv2="Python 3.2"
+ - pylint letsacme.py ;if [[ ! $? -eq 1 ]]; then echo 'pylint success!';elif [[ "$pv" = "$pv1"* || "$pv" = "$pv2" ]]; then echo 'pylint is broken in 2.6 and 3.2. pylint error for 2.6 and 3.2 should be ignored';else false; fi
  - ./test/travis_check.sh
 
