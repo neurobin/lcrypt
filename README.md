@@ -447,28 +447,23 @@ This script depends on various other scripts. An **inst.sh** file is provided to
 2. LAMP
 3. jq
 4. ngrok
+5. nohup
 5. [gencsr](https://github.com/neurobin/gencsr)
 6. [lampi](https://github.com/neurobin/lampi)
 
-**On Ubuntu** you can get the dependencies by running the *inst.sh* script:
+You can get the dependencies by running the *inst.sh* script:
 
 ```sh
 chmod +x ./test/inst.sh
 ./test/inst.sh
 ```
-
-**On other Debian based OS** you can do:
-
-```
-chmod +x ./test/inst.sh
-./test/inst.sh -d
-```
-to get everything except LAMP. You need to install LAMP for your particular flavor manually.
-
 After getting the dependencies, you can run **check.sh** to perform the test:
 
 ```sh
 chmod +x ./test/check.sh
 ./test/check.sh
 ```
+
+**Do not run the ./test/travis_check.sh on your local machine.** It's written for [travis build](https://travis-ci.org/neurobin/letsacme) only and contains 
+unguarded codes that can harm your system.
 
