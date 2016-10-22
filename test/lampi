@@ -3,7 +3,7 @@ p_name=lampi
 p_author='Md Jahidul Hamid'
 p_source='https://github.com/neurobin/lampi'
 p_bugt="$p_source/issues"
-p_version=0.1.2
+p_version=0.1.5
 ver_info="
 Name        : $p_name
 Version     : $p_version
@@ -22,19 +22,20 @@ help="
 # with default configs
 #
 # Options:
-#   [ -i, --install ]       : install LAMP
-#   [ -ri, --reinstall ]    : reinstall LAMP
-#   [ -u, --uninstall ]     : uninstall LAMP
-#   [ -rm, --remove ]       : remove a site
-#   [ -f, --force ]         : force (remove directory)
-#   [ -nu, --no-update ]    : do not run apt-get update
-#   [ -s, --ssl ]           : enable SSL   
-#   [ -so, --ssl-only ]     : configure for https site only 
-#   [ -n, --name ]          : server name (default localhost)
-#   [ -dr, --doc-root ]     : arbitrary document root
-#   [ -npa, --no-php-myadmin: no php my admin
-#   [ -v, --version ]       : show version info
-#   [ -h, --help ]          : show help 
+#   [ -i, --install ]           : install LAMP
+#   [ -ri, --reinstall ]        : reinstall LAMP
+#   [ -u, --uninstall ]         : uninstall LAMP
+#   [ -rm, --remove ]           : remove a site
+#   [ -f, --force ]             : force (remove directory)
+#   [ -nu, --no-update ]        : do not run apt-get update
+#   [ -s, --ssl ]               : enable SSL   
+#   [ -so, --ssl-only ]         : configure for https site only 
+#   [ -n, --name ]              : server name (default localhost)
+#   [ -dr, --doc-root ]         : arbitrary document root
+#   [ -npa, --no-php-myadmin ]  : no php my admin
+#   [ -nsr, --no-server-restart]: no server restart
+#   [ -v, --version ]           : show version info
+#   [ -h, --help ]              : show help 
 ##############################################################
 "
 dr=''
@@ -48,6 +49,7 @@ reinstall=false
 remove=
 force=false
 npa=false
+nsr=false
 for op in "$@";do
     case "$op" in
         -v|--version)
@@ -85,6 +87,10 @@ for op in "$@";do
             ;;
         -npa|--no-php-myadmin)
             npa=true
+            shift
+            ;;
+        -nsr|--no-server-restart)
+            nsr=true
             shift
             ;;
         -i|--install)
@@ -150,7 +156,7 @@ Uninstall       : $uninstall
 Reinstall       : $reinstall
 NoUpdate        : $no_update
 "
-echo "$opts"
+#echo "$opts"
 
 
 #check for root
@@ -171,11 +177,7 @@ chmod 755 "$dr"
 rel=(`lsb_release -r | grep -o '[0-9]\+'`)
 rv=${rel[0]}
 
-tphp='
-<?php
-phpinfo();
-?>
-'
+tphp='<?php phpinfo(); ?>'
 endm="
 ****** Successfully reloaded apache2 ******
 "
@@ -184,12 +186,19 @@ aconf=/etc/apache2/apache2.conf
 
 if [ -n "$remove" ]; then
     a2dissite $remove
-    remove_file=/etc/apache2/sites-available/"$remove.conf"
-    rm_dir="$(sed -n -e 's/^[[:blank:]]*DocumentRoot[[:blank:]]*\([^#]*\).*/\1/p' "$remove_file")"
-    if $force; then
-        rm -r "$rm_dir"
+    remove_file=/etc/apache2/sites-available/"$remove"
+    sed -i .bak -e "/127.0.0.1[[:blank:]]*$remove/d" /etc/hosts
+    if [ -f "$remove_file.conf" ]; then
+        rm_dir="$(sed -n -e 's/^[[:blank:]]*DocumentRoot[[:blank:]]*\([^#]*\).*/\1/p' "$remove_file.conf")"
+        if $force && ! test -z "$rm_dir" && [ "." != "$rm_dir" ] && [ '..' != "$rm_dir" ]; then
+            rm -r "$rm_dir"
+        fi
     fi
-    rm "$remove_file" "$remove_file.bak"
+    rm "$remove_file.conf" "$remove_file.conf.bak"
+    if $ssl; then
+        a2dissite $remove-ssl
+        rm "$remove_file-ssl.conf" "$remove_file-ssl.conf.bak"
+    fi
 else
     if $install || $uninstall; then
 
@@ -221,7 +230,11 @@ else
         list+=("$mysql")
 
         #phpmyadmin
-        phpmd='phpmyadmin apache2-utils'
+        if ! $npa; then
+            phpmd='phpmyadmin apache2-utils'
+        else
+            phpmd=''
+        fi
         if (( $rv >= 16 ));then
             phpmd="$phpmd php-gettext php-mbstring"
         fi
@@ -241,14 +254,16 @@ else
              fi
              
         done
-        pdconf=/etc/phpmyadmin/apache.conf
-        pdincl="Include $pdconf"
-        if ! grep -s -e "$pdincl" "$aconf" >/dev/null 2>&1; then
-            sed -i.bak "$ a $pdincl" "$aconf" &&
-            printf "\n\t apache2 conf modified to include phpmyadmin\n" ||
-            printf "\n\tE: failed to modify apache2 conf for phpmyadmin\n"
-        else
-            printf "\n\tphpmyadmin is already added in apache2 conf (skipped)\n"
+        if ! $npa; then 
+            pdconf=/etc/phpmyadmin/apache.conf
+            pdincl="Include $pdconf"
+            if ! grep -s -e "$pdincl" "$aconf" >/dev/null 2>&1; then
+                sed -i.bak "$ a $pdincl" "$aconf" &&
+                printf "\n\t apache2 conf modified to include phpmyadmin\n" ||
+                printf "\n\tE: failed to modify apache2 conf for phpmyadmin\n"
+            else
+                printf "\n\tphpmyadmin is already added in apache2 conf (skipped)\n"
+            fi
         fi
 
         apt-get autoremove
@@ -271,20 +286,17 @@ else
     #create info.php
     [ ! -f "$dr"/info.php ] && echo "$tphp" > "$dr"/info.php && printf "\n\tinfo.php created\n" || printf "\n\tinfo.php exists (skipped)\n"
     chown $user:$user "$dr"/info.php
+    chmod 640 "$dr"/info.php
 
-if $npa; then
-    sed -i.bak -e 's#^[[:blank:]]*Include[[:blank:]]*/etc/phpmyadmin/apache.conf[[:blank:]]*.*##' "$aconf"
-fi
-
-    dire_opts="\n\t\tAllowOverride All\n\t\tOptions Indexes FollowSymLinks MultiViews\n\t\tOrder allow,deny\n\t\tRequire all granted\n\t\tAllow from all\n\t\t\n\t"
-    dire_opts_ssl="\n\t\t\tAllowOverride All\n\t\t\tOptions Indexes FollowSymLinks MultiViews\n\t\t\tOrder allow,deny\n\t\t\tRequire all granted\n\t\t\tAllow from all\n\t\t\tSSLOptions +StdEnvVars\n\t\t\t\n\t\t"
+    dire_opts="\n\t\tAllowOverride All\n\t\tOptions Indexes FollowSymLinks MultiViews\n\t\tRequire all granted\n\t"
     dire="\t<Directory $dr>$dire_opts</Directory>\n"
 
     #custom sites
-    ds='/etc/apache2/sites-available/000-default.conf'
-    ds_ssl='/etc/apache2/sites-available/default-ssl.conf'
-    dsn="$(dirname "$ds")/$localhost.conf"
-    ds_ssln="$(dirname "$ds_ssl")/$localhost-ssl.conf"
+    sites_av=/etc/apache2/sites-available
+    ds="$(find "$sites_av" -name '*default.conf')"
+    ds_ssl="$(find "$sites_av" -name '*default*ssl*.conf')"
+    dsn="$sites_av/$localhost.conf"
+    ds_ssln="$sites_av/$localhost-ssl.conf"
 
     if [ "$ds" = "$dsn" ]; then
         printf "$ds\m\t\tand\n$dsn\n\t\tcan not be same\nE: ServerName: $(basename "$ds") not allowed\n"
@@ -310,6 +322,7 @@ fi
     if ! $ssl_only; then
         copy_default_config "$ds" "$dsn"
     fi
+    #no else
     if $ssl; then
         copy_default_config "$ds_ssl" "$ds_ssln"
     fi
@@ -341,7 +354,7 @@ fi
             printf "\n\tE: Back up: ${1-x} failed\n"
             echo "$(awk '
             BEGIN       {p=1}
-            /^[[:blank:]]*<[[:blank:]]*Directory[[:blank:]]*[^[:blank:]]+[[:blank:]]*>[[:blank:]]*/   {print;print "'"$dire_opts_ssl"'";p=0}
+            /^[[:blank:]]*<[[:blank:]]*Directory[[:blank:]]*[^[:blank:]]+[[:blank:]]*>[[:blank:]]*/   {print;print "'"$dire_opts"'";p=0}
             /[^#]*<\/Directory/     {p=1}
             p' "${1-x}")" > "${1-x}" &&
             printf "\n\tSuccessfully edited ${1-x}\n" ||
@@ -398,10 +411,14 @@ fi
 fi
 
 #restart the apache2 service
-{
-service apache2 restart ||
-systemctl restart apache2
-} &&
-echo "$endm" ||
-echo "\n\tE: Failed to restart apache2\n"
+if ! $nsr; then
+    {
+    service apache2 restart ||
+    systemctl restart apache2
+    } &&
+    echo "$endm" ||
+    echo "\n\tE: Failed to restart apache2\n"
+else
+    echo "$endm after restarting the server."
+fi
 

@@ -1,23 +1,12 @@
 #!/bin/bash
 cd "$(dirname "$BASH_SOURCE")"
 
-#download gencsr (CSR generator)
-wget https://raw.githubusercontent.com/neurobin/gencsr/release/gencsr -O gencsr
-wget https://raw.githubusercontent.com/neurobin/gencsr/release/gencsr.conf -O gencsr.conf
+#sudo add-apt-repository -y ppa:ondrej/apache2
+#sudo add-apt-repository -y ppa:ondrej/php5
+sudo apt-get update
+sudo apt-get install -qq apache2 mcrypt php5 libapache2-mod-php5 php5-mcrypt php5-cgi php5-cli php5-common php5-curl php5-gd
+sudo apt-get install -qq jq nohup
 
 #download ngrok
 wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -O ngrok-stable-linux-amd64.zip
 unzip ngrok-stable-linux-amd64.zip
-
-#download lampi (lamp installer for ubuntu)
-wget https://raw.githubusercontent.com/neurobin/lampi/release/lampi -O lampi
-chmod +x lampi
-
-#install jq
-sudo apt-get install jq
-
-
-#install LAMP stack
-if [ "$1" != '-d' ]; then
-    sudo ./lampi -i
-fi

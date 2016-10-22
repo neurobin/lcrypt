@@ -1,8 +1,6 @@
 #!/bin/bash
 cd "$(dirname "$BASH_SOURCE")"
 
-###Some convenience functions
-
 prnt(){
     printf "$*\n" >>/dev/stdout
 }
@@ -15,36 +13,89 @@ Exit(){
     if [ "$2" != '-p' ]; then
         kill $pid >/dev/null 2>&1 && prnt "\tKilled pid: $pid"
     fi
-    mv -f "$doc_root1"/.htaccess.bak "$doc_root1"/.htaccess >/dev/null 2>&1
-    mv -f "$doc_root2"/.htaccess.bak "$doc_root2"/.htaccess >/dev/null 2>&1
-    sudo ./lampi -rm "$site1" >/dev/null 2>&1 && prnt "\tRemoved site: $site1"
-    sudo ./lampi -rm "$site2" >/dev/null 2>&1 && prnt "\tRemoved site: $site2"
+#    mv -f "$doc_root1"/.htaccess.bak "$doc_root1"/.htaccess >/dev/null 2>&1
+#    mv -f "$doc_root2"/.htaccess.bak "$doc_root2"/.htaccess >/dev/null 2>&1
+#    sudo ./lampi -rm "$site1" >/dev/null 2>&1 && prnt "\tRemoved site: $site1"
+#    sudo ./lampi -rm "$site2" >/dev/null 2>&1 && prnt "\tRemoved site: $site2"
     exit $1
 }
 
 trap 'Exit 1 2>/dev/null' SIGINT
-#trap Exit INT TERM EXIT
 
-
-
-doc_root1=$HOME/letsacme-host1
-doc_root2=$HOME/letsacme-host2
+doc_root1=/var/www/html
+doc_root2=/var/www/html
 site1=letsacme-host1.local
 site2=letsacme-host2.local
-acme_dir=$doc_root1/acme-challenge
+acme_dir=/var/www/acme-challenge
 
 
 prnt "\nCreating test sites..."
-sudo ./lampi -n "$site1" -dr "$doc_root1" -nsr >/dev/null && prnt "\tCreated site: $site1"
-sudo ./lampi -n "$site2" -dr "$doc_root2" -nsr >/dev/null && prnt "\tCreated site: $site2"
-sudo service apache2 restart >/dev/null && prnt "\tReloaded apache2" || err '\tE: Failed to reload apache2'
+#sudo ./lampi -n "$site1" -dr "$doc_root1" -nsr >/dev/null && prnt "\tCreated site: $site1"
+#sudo ./lampi -n "$site2" -dr "$doc_root2" -nsr >/dev/null && prnt "\tCreated site: $site2"
+#sudo sed -i .bak -e 's/ServerName.*//' "/etc/apache2/sites-available/$site1.conf"
+#sudo sed -i .bak -e 's/ServerName.*//' "/etc/apache2/sites-available/$site2.conf"
+#a2ensite $site1
+#a2ensite $site2
+#sudo service apache2 restart >/dev/null && prnt "\tReloaded apache2"
+
 
 #create backup .htaccess file
-mv -f "$doc_root1"/.htaccess "$doc_root1"/.htaccess.bak >/dev/null 2>&1
-mv -f "$doc_root2"/.htaccess "$doc_root2"/.htaccess.bak >/dev/null 2>&1
+#mv -f "$doc_root1"/.htaccess "$doc_root1"/.htaccess.bak >/dev/null 2>&1
+#mv -f "$doc_root2"/.htaccess "$doc_root2"/.htaccess.bak >/dev/null 2>&1
+
+
+
+sudo mkdir -p "$doc_root1"
+sudo mkdir -p "$doc_root2"
+sudo mkdir -p "$acme_dir"
+sudo chown -R $USER:$USER "$doc_root2" "$doc_root1" "$acme_dir"
+
+#get_conf(){
+#    #$1: dr
+#    prnt "<VirtualHost *:80>
+##            ServerName $2
+##            ServerAlias $2
+#            ServerAdmin webmaster@$2
+#            DocumentRoot $1
+#            <Directory $1>
+#                    Options Indexes FollowSymLinks MultiViews
+#                    AllowOverride All
+#                    Require all granted
+#            </Directory>
+#        </VirtualHost>"
+#}
+
+#get_conf "$doc_root1" "$site1" | sudo tee /etc/apache2/sites-available/"$site1".conf > /dev/null
+##cat /etc/apache2/sites-available/"$site1".conf
+
+#get_conf "$doc_root2" "$site2" | sudo tee /etc/apache2/sites-available/"$site2".conf > /dev/null
+##cat /etc/apache2/sites-available/"$site2".conf
+
+manage_host(){
+    #$1:dom
+    if ! grep -s -e "^127.0.0.1[[:blank:]]*$1[[:blank:]]*$" /etc/hosts >/dev/null 2>&1; then
+        sudo sed -i.bak -e "1 a 127.0.0.1\t$1" /etc/hosts &&
+        printf "\tAdded $1 to /etc/hosts\n" ||
+        printf "\tE: Failed to add $1 to /etc/hosts\n"
+    fi
+}
+#echo "" |sudo tee -a /etc/hosts >/dev/null
+#sudo sed -i.bak 's/127\.0\.0\.1.*/127.0.0.1 localhost/' /etc/hosts
+manage_host "$site1"
+manage_host "$site2"
+#echo " $site1 $site2" |sudo tee -a /etc/hosts
+#cat /etc/hosts
+
+#sudo a2dissite 000-default
+#sudo a2ensite "$site1" >/dev/null 2>&1 && prnt "\tCreated site: $site1"
+#sudo a2ensite "$site2" >/dev/null 2>&1 && prnt "\tCreated site: $site2"
+#sudo a2enmod rewrite >/dev/null 2>&1
 
 prnt "\nngrok ..."
 
+#download ngrok
+#wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -O ngrok-stable-linux-amd64.zip
+#unzip ngrok-stable-linux-amd64.zip
 nweb=127.0.0.1:4040
 nconf="tunnels:
   $site1:
@@ -87,8 +138,8 @@ prnt "\tSite2: $public_url2"
 
 #tphp='<?php phpinfo(); ?>'
 
-#echo working > "$doc_root1"/somefile
-#echo working > "$doc_root2"/somefile
+#echo working1 > "$doc_root1"/somefile
+#echo working2 > "$doc_root2"/somefile
 
 #ls -la "$doc_root1" "$doc_root2"
 
@@ -98,10 +149,6 @@ prnt "\tSite2: $public_url2"
 #curl "$public_url1/somefile"
 #curl "$public_url2/somefile"
 #curl "$public_url1"
-
-#ls -la "$doc_root1" "$doc_root2"
-
-#sleep 30
 
 prnt '\nPreparing ...'
 
@@ -138,7 +185,9 @@ conf_json='{
 echo "$conf_json" > config.json && prnt '\tCreated config.json file'
 
 prnt "\tRunning letsacme: python ../letsacme.py --config-json config.json"
-
+#echo "" > "$doc_root1"/.htaccess
+#echo "" > "$doc_root2"/.htaccess
+#sleep 30
 t="$(mktemp)"
 { python ../letsacme.py --config-json config.json 2>&1; echo $? >"$t"; } | sed -e 's/.*/\t\t&/'
 es=$(cat $t)
@@ -156,13 +205,21 @@ prnt "
 *******************************************************
 "
 
-red_code="
-RewriteEngine On
-RewriteBase /
-RewriteRule ^.well-known/acme-challenge/(.*)$ http://$dom1/acme-challenge/\$1 [L,R=302]
-"
-echo "$red_code" > "$doc_root1"/.htaccess && prnt "\tRedirect for $site1 is set"
-echo "$red_code" > "$doc_root2"/.htaccess && prnt "\tRedirect for $site2 is set"
+#red_code="
+#RewriteEngine On
+#RewriteBase /
+#RewriteRule ^.well-known/acme-challenge/(.*)$ http://$dom1/acme-challenge/\$1 [L,R=302]
+#"
+#echo "$red_code" > "$doc_root1"/.htaccess && prnt "\tRedirect for $site1 is set"
+#echo "$red_code" > "$doc_root2"/.htaccess && prnt "\tRedirect for $site2 is set"
+
+alias="Alias /.well-known/acme-challenge $acme_dir\n<Directory $acme_dir>\nRequire all granted\n</Directory>"
+
+sudo sed -i.bak -e "s#<VirtualHost[^>]*>#&\n$alias#" /etc/apache2/sites-available/000-default.conf
+#cat /etc/apache2/sites-available/000-default.conf
+sudo a2enmod alias >/dev/null 2>&1
+#sudo a2enmod actions
+sudo service apache2 restart >/dev/null 2>&1 && prnt '\tReloaded apache2' || err '\tE: Failed to reload apache2'
 
 prnt "\tRunning letsacme:
 \tpython ../letsacme.py --test\\\\\n\t  --account-key account.key\\\\\n\t  --csr dom.csr\\\\\n\t  --acme-dir $acme_dir\\\\\n\t  --chain-file chain.crt\\\\\n\t  --cert-file dom.crt"
