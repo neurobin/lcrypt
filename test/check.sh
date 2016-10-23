@@ -16,10 +16,8 @@ Exit(){
     if [ "$2" != '-p' ]; then
         kill $pid >/dev/null 2>&1 && prnt "\tKilled pid: $pid"
     fi
-    mv -f "$doc_root1"/.htaccess.bak "$doc_root1"/.htaccess >/dev/null 2>&1
-    mv -f "$doc_root2"/.htaccess.bak "$doc_root2"/.htaccess >/dev/null 2>&1
-    sudo ./lampi -rm "$site1" >/dev/null 2>&1 && prnt "\tRemoved site: $site1"
-    sudo ./lampi -rm "$site2" >/dev/null 2>&1 && prnt "\tRemoved site: $site2"
+    sudo ./lampi -rmd "$site1" >/dev/null 2>&1 && prnt "\tRemoved site: $site1"
+    sudo ./lampi -rmd "$site2" >/dev/null 2>&1 && prnt "\tRemoved site: $site2"
     exit $1
 }
 
@@ -28,8 +26,8 @@ trap 'Exit 1 2>/dev/null' SIGINT
 
 
 
-doc_root1=$HOME/letsacme-host1
-doc_root2=$HOME/letsacme-host2
+doc_root1="$(mktemp -d)"
+doc_root2="$(mktemp -d)"
 site1=letsacme-host1.local
 site2=letsacme-host2.local
 acme_dir=$doc_root1/acme-challenge
@@ -38,40 +36,26 @@ acme_dir=$doc_root1/acme-challenge
 prnt "\nCreating test sites..."
 sudo ./lampi -n "$site1" -dr "$doc_root1" >/dev/null && prnt "\tCreated site: $site1"
 sudo ./lampi -n "$site2" -dr "$doc_root2" >/dev/null && prnt "\tCreated site: $site2"
-#let's do another apche2 reload
-sudo service apache2 restart >/dev/null && prnt "\tReloaded apache2" || err '\tE: Failed to reload apache2'
-#sleep 3 #let the servers to prepare, increase this amount if you still get errors verifying domains
-
-
-#create backup .htaccess file
-mv -f "$doc_root1"/.htaccess "$doc_root1"/.htaccess.bak >/dev/null 2>&1
-mv -f "$doc_root2"/.htaccess "$doc_root2"/.htaccess.bak >/dev/null 2>&1
 
 #Test the sites
-t1=$(date +%s)
-max_t=7 #limit max try in seconds
-prnt '\tTesting the new sites..'
-somefile=.well-known/acme-challenge/somefile
-while true; do
-    echo 'working' | tee "$doc_root1"/"$somefile" >/dev/null
-    echo 'working' | tee "$doc_root2"/"$somefile" >/dev/null
-    curl "http://$site1/$somefile" >/dev/null 2>&1 &&
-    curl "http://$site2/$somefile" >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        prnt '\t\tBoth sites are good'
-        break
+prnt '\tTesting sites..'
+mkdir -p "$doc_root1"/.well-known/acme-challenge
+mkdir -p "$doc_root2"/.well-known/acme-challenge
+
+site_test(){
+    # $1: burl, $2:docroot
+    somefile="$(tr -cd 0-9 </dev/urandom | head -c 65)"
+    echo working > "$2/.well-known/acme-challenge/$somefile"
+    if curl "$1/.well-known/acme-challenge/$somefile" >/dev/null 2>&1;then
+        prnt "\t\tPassed: $1"
     else
-        prnt '\t\tSites are not in good condition'
-        sleep 1
-        t2=$(date +%s)
-        time="$(expr $t2 - $t1)"
-        t1=$(date +%s)
-        if [ $time -ge $max_t ]; then
-            prnt "\t\t$max_t seconds has been passed, sites are still not good"
-            Exit 1 -p
-        fi
+        prnt "\t\tFailed: $1"
+        Exit 1
     fi
-done
+}
+
+site_test "http://$site1" "$doc_root1"
+site_test "http://$site2" "$doc_root2"
 
 
 prnt "\nngrok ..."
@@ -109,8 +93,8 @@ while true; do
     fi
     t2=$(date +%s)
     time="$(expr $t2 - $t1)"
-    t1=$(date +%s)
     if [ $time -ge $max_t ]; then
+        t1=$(date +%s)
         prnt "\tngork froze. Restarting ..."
         kill $pid >/dev/null 2>&1 && prnt "\tKilled pid: $pid"
         nohup ./ngrok start -config "$nconf_f" $site1 $site2 >/dev/null 2>&1 &
@@ -126,21 +110,14 @@ fi
 
 prnt "\tSite1: $public_url1"
 prnt "\tSite2: $public_url2"
-
+prnt "\tTesting sites ..."
 
 #tphp='<?php phpinfo(); ?>'
 
-#echo working > "$doc_root1"/somefile
-#echo working > "$doc_root2"/somefile
-
 #ls -la "$doc_root1" "$doc_root2"
 
-#prnt "URL1: $public_url1/somefile"
-#prnt "URL2: $public_url2/somefile"
-
-#curl "$public_url1/somefile"
-#curl "$public_url2/somefile"
-#curl "$public_url1"
+site_test "$public_url1" "$doc_root1"
+site_test "$public_url2" "$doc_root2"
 
 #ls -la "$doc_root1" "$doc_root2"
 

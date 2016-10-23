@@ -342,7 +342,7 @@ def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, forc
                            resp.code, json.dumps(resp.read().decode('utf8'),\
                            indent=4), str(err)), log)
             if challenge_status['status'] == "pending":
-                time.sleep(2)
+                time.sleep(1)
             elif challenge_status['status'] == "valid":
                 os.remove(wellknown_path)
                 log.info("\tverified!")
