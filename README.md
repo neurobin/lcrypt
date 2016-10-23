@@ -463,5 +463,5 @@ chmod +x ./test/check.sh
 **Do not run the ./test/travis_check.sh on your local machine.** It's written for [travis build](https://travis-ci.org/neurobin/letsacme) only and contains 
 unguarded code that can harm your system.
 
-If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page of letsacme](https://travis-ci.org/neurobin/letsacme). Travis test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (the <a href="#work-around">3.3</a> workaround).
+If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page for letsacme](https://travis-ci.org/neurobin/letsacme). Travis test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (the <a href="#work-around">3.3</a> workaround). **Both test checks with (DocumentRoot) config-json and without (with AcmeDir) config-json**
 

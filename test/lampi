@@ -3,7 +3,7 @@ p_name=lampi
 p_author='Md Jahidul Hamid'
 p_source='https://github.com/neurobin/lampi'
 p_bugt="$p_source/issues"
-p_version=0.1.5
+p_version=0.1.6
 ver_info="
 Name        : $p_name
 Version     : $p_version
@@ -187,7 +187,11 @@ aconf=/etc/apache2/apache2.conf
 if [ -n "$remove" ]; then
     a2dissite $remove
     remove_file=/etc/apache2/sites-available/"$remove"
-    sed -i .bak -e "/127.0.0.1[[:blank:]]*$remove/d" /etc/hosts
+    file=/etc/hosts
+    pat="^\([[:blank:]]*127\.0\.0\.1.*\)[[:blank:]]$remove\b\(.*\)$"
+    while grep -e "$pat" "$file" >/dev/null 2>&1;do
+        sed -i.bak -e "s/$pat/\1\2/" "$file"
+    done
     if [ -f "$remove_file.conf" ]; then
         rm_dir="$(sed -n -e 's/^[[:blank:]]*DocumentRoot[[:blank:]]*\([^#]*\).*/\1/p' "$remove_file.conf")"
         if $force && ! test -z "$rm_dir" && [ "." != "$rm_dir" ] && [ '..' != "$rm_dir" ]; then
@@ -368,9 +372,15 @@ else
     if $ssl; then
         insert_docroot_property "$ds_ssln"
     fi
-
-    if ! grep -s -e "^127.0.0.1[[:blank:]]*$localhost[[:blank:]]*$" /etc/hosts >/dev/null 2>&1; then
-        sed -i.bak -e "1 a 127.0.0.1\t$localhost" /etc/hosts &&
+    
+    #manage /etc/hosts
+    pat='^[[:blank:]]*127\.0\.0\.1[[:blank:]]\+.*$'
+    if grep "$pat" /etc/hosts >/dev/null 2>&1; then
+        sed -i.bak -e "s/$pat/& $localhost/" /etc/hosts >/dev/null &&
+        printf "\n\tAdded $localhost to /etc/hosts\n" ||
+        printf "\n\tE: Failed to add $localhost to /etc/hosts\n"
+    else
+        sed -i.bak -e "1 a 127.0.0.1 $localhost" /etc/hosts >/dev/null &&
         printf "\n\tAdded $localhost to /etc/hosts\n" ||
         printf "\n\tE: Failed to add $localhost to /etc/hosts\n"
     fi

@@ -115,6 +115,8 @@ nohup ./ngrok start -config "$nconf_f" $site1 $site2 >/dev/null 2>&1 &
 pid=$!
 prnt "\tRunning ngrok in the background (pid: $pid)"
 
+t1=$(date +%s)
+max_t=7 #limit max try in seconds
 while true; do
     tunnel_info_json="$(curl -s http://$nweb/api/tunnels)"
     #echo $tunnel_info_json
@@ -124,6 +126,16 @@ while true; do
     dom2="$(echo "$public_url2" |sed -n -e 's#.*//\([^/]*\)/*.*#\1#p')"
     if [ -n "$dom1" ] && [ -n "$dom2" ]; then
         break
+    fi
+    t2=$(date +%s)
+    time="$(expr $t2 - $t1)"
+    t1=$(date +%s)
+    if [ $time -ge $max_t ]; then
+        prnt "\tngork froze. Restarting ..."
+        kill $pid >/dev/null 2>&1 && prnt "\tKilled pid: $pid"
+        nohup ./ngrok start -config "$nconf_f" $site1 $site2 >/dev/null 2>&1 &
+        pid=$!
+        prnt "\tngrok restarted (pid: $pid)"
     fi
 done
 

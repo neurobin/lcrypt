@@ -1,6 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$BASH_SOURCE")"
 
+
 ###Some convenience functions
 
 prnt(){
@@ -39,10 +40,39 @@ sudo ./lampi -n "$site1" -dr "$doc_root1" >/dev/null && prnt "\tCreated site: $s
 sudo ./lampi -n "$site2" -dr "$doc_root2" >/dev/null && prnt "\tCreated site: $site2"
 #let's do another apche2 reload
 sudo service apache2 restart >/dev/null && prnt "\tReloaded apache2" || err '\tE: Failed to reload apache2'
+#sleep 3 #let the servers to prepare, increase this amount if you still get errors verifying domains
+
 
 #create backup .htaccess file
 mv -f "$doc_root1"/.htaccess "$doc_root1"/.htaccess.bak >/dev/null 2>&1
 mv -f "$doc_root2"/.htaccess "$doc_root2"/.htaccess.bak >/dev/null 2>&1
+
+#Test the sites
+t1=$(date +%s)
+max_t=7 #limit max try in seconds
+prnt '\tTesting the new sites..'
+somefile=.well-known/acme-challenge/somefile
+while true; do
+    echo 'working' | tee "$doc_root1"/"$somefile" >/dev/null
+    echo 'working' | tee "$doc_root2"/"$somefile" >/dev/null
+    curl "http://$site1/$somefile" >/dev/null 2>&1 &&
+    curl "http://$site2/$somefile" >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        prnt '\t\tBoth sites are good'
+        break
+    else
+        prnt '\t\tSites are not in good condition'
+        sleep 1
+        t2=$(date +%s)
+        time="$(expr $t2 - $t1)"
+        t1=$(date +%s)
+        if [ $time -ge $max_t ]; then
+            prnt "\t\t$max_t seconds has been passed, sites are still not good"
+            Exit 1 -p
+        fi
+    fi
+done
+
 
 prnt "\nngrok ..."
 
@@ -65,6 +95,8 @@ nohup ./ngrok start -config "$nconf_f" $site1 $site2 >/dev/null 2>&1 &
 pid=$!
 prnt "\tRunning ngrok in the background (pid: $pid)"
 
+t1=$(date +%s)
+max_t=7 #limit max try in seconds
 while true; do
     tunnel_info_json="$(curl -s http://$nweb/api/tunnels)"
     #echo $tunnel_info_json
@@ -74,6 +106,16 @@ while true; do
     dom2="$(echo "$public_url2" |sed -n -e 's#.*//\([^/]*\)/*.*#\1#p')"
     if [ -n "$dom1" ] && [ -n "$dom2" ]; then
         break
+    fi
+    t2=$(date +%s)
+    time="$(expr $t2 - $t1)"
+    t1=$(date +%s)
+    if [ $time -ge $max_t ]; then
+        prnt "\tngork froze. Restarting ..."
+        kill $pid >/dev/null 2>&1 && prnt "\tKilled pid: $pid"
+        nohup ./ngrok start -config "$nconf_f" $site1 $site2 >/dev/null 2>&1 &
+        pid=$!
+        prnt "\tngrok restarted (pid: $pid)"
     fi
 done
 
@@ -151,7 +193,7 @@ if [ $es -eq 0 ]; then
     prnt '\n\t*** success on test 1 ***'
 else
     err '\tE: Failed to get the certs'
-    sleep 30
+    #sleep 30
     Exit 1 2>/dev/null
 fi
 
