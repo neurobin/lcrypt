@@ -105,8 +105,11 @@ prnt "\tSite2: $public_url2"
 #sleep 30
 
 prnt '\nPreparing ...'
-
-#openssl genrsa 4096 > account.key && prnt '\tCreated account.key'
+if [ -f account.key ]; then
+    prnt '\tUsing existing account.key'
+else
+    openssl genrsa 4096 > account.key && prnt '\tCreated account.key'
+fi
 printf "$dom1\n$dom2\n" > dom.list && prnt '\tCreated dom.list file'
 ./gencsr >/dev/null && prnt '\tCreated CSR'
 

@@ -431,9 +431,9 @@ For <a href="#work-around">3.3</a> workaround, change the AcmeDir to `/var/www/c
 
 
 #Test suit:
-The *test* directory contains a simple Bash script named **check.sh**.It creates two local dummy sites and <span class="warning">exposes them publicly (careful) on Internet using ngrok</span>, then creates *account key*, *dom.key*, *CSR* for these two sites and gets the certificate and chain. The location of these two sites are */home/user/letsacme-host1* and */home/user/letsacme-host2*. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
+The **test** directory contains a simple Bash script named **check.sh**. It creates two local dummy sites and <span class="warning">exposes them publicly (careful) on Internet using ngrok</span>, then creates *account key*, *dom.key*, *CSR* for these two sites and gets the certificate and chain. The location of these two sites are */home/user/letsacme-host1* and */home/user/letsacme-host2*. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
 
-Part of this script requires root privilege (It needs to create custom sites on localhost).
+Part of this script requires root privilege (It needs to create custom sites on localhost and restart apache2).
 
 This script depends on various other scripts/tools. An **inst.sh** file is provided to install/download the dependencies.
 
@@ -451,7 +451,7 @@ You can get the dependencies by running the *inst.sh* script:
 chmod +x ./test/inst.sh
 ./test/inst.sh
 ```
-If you already have Apache2 server installed, then just install `jq`. Then download and unzip [ngrok](wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -O ngrok-stable-linux-amd64.zip) (see *inst.sh* file) in the test directory.
+If you already have Apache2 server installed, then just install `jq`. Then download and unzip [ngrok](wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -O ngrok-stable-linux-amd64.zip) (see *inst.sh* file) in the *test* directory.
 
 After getting the dependencies, you can run **check.sh** to perform the test:
 
