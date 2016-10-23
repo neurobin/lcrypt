@@ -35,8 +35,9 @@ acme_dir=$doc_root1/acme-challenge
 
 
 prnt "\nCreating test sites..."
-sudo ./lampi -n "$site1" -dr "$doc_root1" -nsr >/dev/null && prnt "\tCreated site: $site1"
-sudo ./lampi -n "$site2" -dr "$doc_root2" -nsr >/dev/null && prnt "\tCreated site: $site2"
+sudo ./lampi -n "$site1" -dr "$doc_root1" >/dev/null && prnt "\tCreated site: $site1"
+sudo ./lampi -n "$site2" -dr "$doc_root2" >/dev/null && prnt "\tCreated site: $site2"
+#let's do another apche2 reload
 sudo service apache2 restart >/dev/null && prnt "\tReloaded apache2" || err '\tE: Failed to reload apache2'
 
 #create backup .htaccess file
@@ -147,6 +148,7 @@ if [ $es -eq 0 ]; then
     prnt '\n\t*** success on test 1 ***'
 else
     err '\tE: Failed to get the certs'
+    sleep 30
     Exit 1 2>/dev/null
 fi
 
