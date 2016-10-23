@@ -152,18 +152,14 @@ conf_json='{
 "CSR": "dom.csr",
 "CertFile":"dom.crt",
 "ChainFile":"chain.crt",
-"CA":"",
-"NoChain":"False",
-"NoCert":"False",
-"Test":"True",
-"Force":"False"
-}'
-echo "$conf_json" > config.json && prnt '\tCreated config.json file'
+"Test":"True"
+}' && prnt '\tConfiguration JSON prepared'
+#echo "$conf_json" > config.json && prnt '\tCreated config.json file'
 
-prnt "\tRunning letsacme: python ../letsacme.py --config-json config.json"
+prnt '\tRunning letsacme: python ../letsacme.py --config-json $conf_json'
 
 t="$(mktemp)"
-{ python ../letsacme.py --config-json config.json 2>&1; echo $? >"$t"; } | sed -e 's/.*/\t\t&/'
+{ python ../letsacme.py --config-json "$conf_json" 2>&1; echo $? >"$t"; } | sed -e 's/.*/\t\t&/'
 es=$(cat $t)
 rm "$t"
 if [ $es -eq 0 ]; then

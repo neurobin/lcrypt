@@ -66,7 +66,7 @@ See section <a href="#work-around">3.3</a> on how you can work this around.
 ###3.1: Using acme-dir as in acme-tiny (method 1):
 This method is the same as acme-tiny except the fact that letsacme prints a fullchain (cert+chain) on stdout (by default), while acme-tiny prints only the cert. If you provide `--no-chain` option (or equivalent `"NoChain": "False"` in config json) then the output will match that of acme-tiny.
 
-You can pass the acme-dir with `--acme-dir` option or define AcmeDir in json file like `"AcmeDir": "/path/to/acme/dir"`
+You can pass the acme-dir with `--acme-dir` option or define AcmeDir in json file like `"AcmeDir": "/path/to/acme/dir"`.
 
 This is how you can prepare an acme-dir:
 ```sh
@@ -93,7 +93,6 @@ On apache2  you can set Aliases:
 ```apache
 Alias /.well-known/acme-challenge /var/www/challenges
 ```
-<span class="warning">This requires root privilege</span>
 
 **You can't use this method on shared server** as most of the shared server won't allow Aliases in AccessFile. For shared server/hosting, you should either use your site's document root as the destination for acme-challenges, or redirect the challenges to a different directory which has a valid and active URL and allows http file download without hindrance. Follow the steps mentioned in section <a href="#work-around">3.3</a> to do that.
 
@@ -207,7 +206,7 @@ server {
 ```
 An example for apache2:
 ```apache
-<VirtualHost *:443>     
+<VirtualHost *:443>
         ...other configurations
         SSLEngine on
         SSLCertificateKeyFile /path/to/domain.key
@@ -310,7 +309,7 @@ Command line option | Equivalent JSON | Details
 `--acme-dir PATH` | `"AcmeDir": "PATH"` | Path to the .well-known/acme-challenge/ directory
 `--cert-file PATH` | `"CertFile": "PATH"` | File to write the certificate to. Overwrites if file exists.
 `--chain-file PATH` | `"ChainFile": "PATH"` | File to write the certificate to. Overwrites if file exists.
-`--quiet` | N/A | Suppress output except for errors.
+`--quiet` | `"Quiet": "True/False"` | Suppress output except for errors.
 `--ca URL` | `"CA": "URL"` | Certificate authority, default is Let's Encrypt.
 `--no-chain` | `"NoChain": "True/False"` | Fetch chain (CABUNDLE) but do not print it on stdout.
 `--no-cert` | `"NoCert": "True/False"` |       Fetch certificate but do not print it on stdout.
@@ -325,12 +324,16 @@ You can either pass the options directly as command line parameters when you run
 
 If you want to use the acme-dir method, then there's no need to use the config json unless you want to keep your options together, saved somewhere and shorten the command that will be run. But if you use document root as the challenge directory, it is a must to define them in a config json.
 
-**Most of the previous examples show how you can use it without config json**, and this is how you use it with the config json:
+**Most of the previous examples show how you can use it without config json**, and this is how you use letsacme with a configuration json:
 
 ```sh
 python letsacme.py --config-json /path/to/config.json
 ```
-Now letsacme will take all options from that configuration file.
+Now letsacme will take all options from that configuration file. `--config-json` can also take a raw JSON string. This may come in handy if you are writing a script and you don't want to create a separate file to put the JSON. In that case, you can put it in a variable and pass the variable as the parameter:
+
+```sh
+python letsacme.py --config-json "$conf_json"
+```
 
 <div id="config-json"></div>
 #Advanced info about the configuration file:
@@ -418,7 +421,7 @@ This script depends on various other scripts/tools. An **inst.sh** file is provi
 3. jq
 4. ngrok
 5. [gencsr](https://github.com/neurobin/gencsr) \[included\]
-5. lampi (This script creates the local sites) \[included\]
+5. [lampi](https://github.com/neurobin/lampi) \[included\](This script creates the local sites)
 
 You can get the dependencies by running the *inst.sh* script:
 
@@ -440,7 +443,7 @@ unguarded code that can harm your system.
 
 If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page for letsacme](https://travis-ci.org/neurobin/letsacme). Travis test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (the <a href="#work-around">3.3</a> workaround).
 
-**Both tests performs:**
+**Both tests perform:**
 
 1. A test defining document roots in config json.
 2. A test using acme-dir without config json.
