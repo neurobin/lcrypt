@@ -38,7 +38,7 @@ except ImportError:  # Python 2
     from urllib2 import URLError
 
 ##################### letsacme info #####################
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 VERSION_INFO = "letsacme version: "+VERSION
 ##################### API info ##########################
 CA_VALID = "https://acme-v01.api.letsencrypt.org"
@@ -137,8 +137,8 @@ def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, forc
         """Get the challenge directory path from config json"""
         if conf_json:
             if dom not in conf_json:
-                if re.match(r'www\w*\.', dom):
-                    dom1 = re.sub(r"^www\w*\.", "", dom)
+                if re.match(r'www[^.]*\.', dom):
+                    dom1 = re.sub(r"^www[^.]*\.", "", dom)
                 else:
                     dom1 = "www."+dom
                 if dom1 in conf_json:
