@@ -1,2 +1,8 @@
 ngrok
 *.zip
+dom.list
+dom.csr
+dom.crt
+/test/config.json
+chain.crt
+ngrok.yml

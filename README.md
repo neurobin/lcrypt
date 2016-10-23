@@ -359,10 +359,6 @@ It will show you all the available options that are supported by the script. The
   --version             Show version info.
 ```
 
-#Testing:
-
-For testing use the `--test` flag. It will use the staging api and get a test certificate with test chain. Don't test without passing `--test` flag. There's a very low rate limit on how many requests you can send for trusted certificates. On the other hand, the rate limit for the staging api is much larger.
-
 #Advanced info about the configuration file:
 
 1. Arguments passed in the command line takes priority over properties/options defined in the JSON file.
@@ -435,11 +431,11 @@ For <a href="#work-around">3.3</a> workaround, change the AcmeDir to `/var/www/c
 
 
 #Test suit:
-The test directory contains a simple Bash script named **check.sh**.It creates two local dummy sites and <span class="warning">exposes them on Internet publicly (be careful)</span> using ngrok, then creates account key, dom.key, CSR for these two sites and gets the certificate (one cert). The location of these two sites are */home/user/letsacme-host1* and */home/user/letsacme-host2*. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
+The *test* directory contains a simple Bash script named **check.sh**.It creates two local dummy sites and <span class="warning">exposes them publicly (careful) on Internet using ngrok</span>, then creates *account key*, *dom.key*, *CSR* for these two sites and gets the certificate and chain. The location of these two sites are */home/user/letsacme-host1* and */home/user/letsacme-host2*. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
 
-Part of this script requires root privilege.
+Part of this script requires root privilege (It needs to create custom sites on localhost).
 
-This script depends on various other scripts. An **inst.sh** file is provided to install/download the dependencies.
+This script depends on various other scripts/tools. An **inst.sh** file is provided to install/download the dependencies.
 
 **Dependencies:**
 
@@ -455,7 +451,7 @@ You can get the dependencies by running the *inst.sh* script:
 chmod +x ./test/inst.sh
 ./test/inst.sh
 ```
-If you already have Apache2 server installed, then just install jq. Then download and unzip [ngrok](wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -O ngrok-stable-linux-amd64.zip) (see inst.sh file) in the test directory.
+If you already have Apache2 server installed, then just install `jq`. Then download and unzip [ngrok](wget https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.zip -O ngrok-stable-linux-amd64.zip) (see *inst.sh* file) in the test directory.
 
 After getting the dependencies, you can run **check.sh** to perform the test:
 
@@ -467,5 +463,5 @@ chmod +x ./test/check.sh
 **Do not run the ./test/travis_check.sh on your local machine.** It's written for [travis build](https://travis-ci.org/neurobin/letsacme) only and contains 
 unguarded code that can harm your system.
 
-If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page](https://travis-ci.org/neurobin/letsacme). That test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (<a href="#work-around">3.3</a>.).
+If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page of letsacme](https://travis-ci.org/neurobin/letsacme). Travis test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (the <a href="#work-around">3.3</a> workaround).
 

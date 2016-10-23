@@ -51,7 +51,8 @@ NEW_AUTHZ_KEY = 'new-authz'
 ##################### Defaults ##########################
 DEFAULT_CA = CA_VALID
 API_INFO = set({})
-WELL_KNOWN_DIR = ".well-known/acme-challenge" # used as a fallback in DocumentRoot method
+# used as a fallback in DocumentRoot method:
+WELL_KNOWN_DIR = ".well-known/acme-challenge"
 ##################### Logger ############################
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
@@ -74,9 +75,9 @@ def get_canonical_url(url, log):
         return url
 
 def get_boolean_options_from_json(conf_json, ncn, ncrt, tst, frc):
-    """Parse config json for boolean options and return them sequentially
-    It takes prioritised values as params. Among these values, non-None/False values are
-    reserved and it's value in config json is ignored."""
+    """Parse config json for boolean options and return them sequentially.
+    It takes prioritised values as params. Among these values, non-None/True values are
+    preserved and their values in config json are ignored."""
     opt = {'NoChain':ncn, 'NoCert':ncrt, 'Test':tst, 'Force':frc}
     for key in opt:
         if not opt[key] and key in conf_json and conf_json[key].lower() == "true":
@@ -85,9 +86,9 @@ def get_boolean_options_from_json(conf_json, ncn, ncrt, tst, frc):
     return opt['NoChain'], opt['NoCert'], opt['Test'], opt['Force']
 
 def get_options_from_json(conf_json, ack, csr, acmd, crtf, chnf, ca):
-    """Parse key-value options from config json and return the values sequentially
+    """Parse key-value options from config json and return the values sequentially.
     It takes prioritised values as params. Among these values, non-None values are
-    reserved and it's value in config json is ignored."""
+    preserved and their values in config json are ignored."""
     opt = {'AccountKey':ack, 'CSR':csr, 'AcmeDir':acmd, 'CertFile':crtf, 'ChainFile':chnf, 'CA':ca}
     for key in opt:
         if not opt[key] and key in conf_json and conf_json[key]:
@@ -376,9 +377,7 @@ def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, forc
         "\n".join(textwrap.wrap(base64.b64encode(result).decode('utf8'), 64))), chain_url
 
 def main(argv):
-    """
-    Parse arguments and run helper functions to get the certs
-    """
+    """Parse arguments and run helper functions to get the certs"""
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=textwrap.dedent("""\
