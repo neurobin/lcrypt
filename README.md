@@ -13,7 +13,9 @@ The **letsacme** script automates the process of getting a signed TLS/SSL certif
 
 If you just want to renew an existing certificate, you will only have to do Steps 4~6. 
 
-**For shared servers/hosting:** Get only the certificate (step 1~4) by running the script on your server and then install the certificate with cpanel or equivalent control panels. If you don't want to go all technical about it and just want to follow a step by step process to get the certificate, then [this tutorial](https://neurobin.org/docs/web/letsacme/get-letsencrypt-certficate-for-shared-hosting/) may be the right choice for you. If you are on a cpanel hosting then [this tutorial](https://neurobin.org/docs/web/fully-automated-letsencrypt-integration-with-cpanel/) will help you automate the whole process.
+**For shared servers/hosting:** Get only the certificate (step 1~4) by running the script on your server and then install the certificate with cpanel or equivalent control panels. If you don't want to go all technical about it and just want to follow a step by step process to get the certificate, then [this tutorial](https://neurobin.org/docs/web/letsacme/get-letsencrypt-certficate-for-shared-hosting/) may be the right choice for you.
+
+If you are on a cpanel hosting then [this tutorial](https://neurobin.org/docs/web/fully-automated-letsencrypt-integration-with-cpanel/) will help you automate the whole process.
 
 ## 1: Create a Let's Encrypt account private key (if you haven't already):
 You must have a public key registered with Let's Encrypt and use the corresponding private key to sign your requests. Thus you first need to create a key, which **letsacme** will use to register an account for you and sign all the following requests.
@@ -59,16 +61,48 @@ Otherwise, you may get an **error message** like this one:
 ```sh
 Wrote file to /var/www/public_html/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ, but couldn't download http://example.com/.well-known/acme-challenge/rgGoLnQ8VkBOPyXZn-PkPD-A3KH4_2biYVOxbrYRDuQ
 ```
-See section 3.3 on how you can work this around.
+See section <a href="#work-around">3.3</a> on how you can work this around.
 
-###3.1: Using Document Root of each of your sites:
-**letsacme** uses a JSON file to get the required information it needs. 
+###3.1: Using acme-dir as in acme-tiny (method 1):
+This method is the same as acme-tiny except the fact that letsacme prints a fullchain (cert+chain) on stdout (by default), while acme-tiny prints only the cert. If you provide `--no-chain` option (or equivalent `"NoChain": "False"` in config json) then the output will match that of acme-tiny.
 
-This method (using document root) is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not have to do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, **letsacme** requires you to provide the document root (or path to acme challenge directory) of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there. Instead of document root you can use other directory/s too; but in that case you will need to redirect all requests to http://example.com/.well-known/acme-challenge/.* to the URL of that directory (section 3.3).
+You can pass the acme-dir with `--acme-dir` option or define AcmeDir in json file like `"AcmeDir": "/path/to/acme/dir"`
+
+This is how you can prepare an acme-dir:
+```sh
+#make some challenge directory (modify to suit your needs)
+mkdir -p /var/www/challenges/
+```
+Then you need to configure your server. 
+
+Example for nginx (copied from acme-tiny readme):
+```nginx
+server {
+    listen 80;
+    server_name yoursite.com www.yoursite.com;
+
+    location /.well-known/acme-challenge/ {
+        alias /var/www/challenges/;
+        try_files $uri =404;
+    }
+
+    ...the rest of your config
+}
+```
+On apache2  you can set Aliases:
+```apache
+Alias /.well-known/acme-challenge /var/www/challenges
+```
+<span class="warning">This requires root privilege</span>
+
+**You can't use this method on shared server** as most of the shared server won't allow Aliases in AccessFile. For shared server/hosting, you should either use your site's document root as the destination for acme-challenges, or redirect the challenges to a different directory which has a valid and active URL and allows http file download without hindrance. Follow the steps mentioned in section <a href="#work-around">3.3</a> to do that.
+
+###3.2: Using Document Root of each of your sites (method 2):
+This method (using document root) is different than the acme-tiny script which this script is based on. Acme-tiny requires you to configure your server for completing the challenge; contrary to that, the intention behind this method is to not have to do anything at all on the server configuration until we finally get the certificate. Instead of setting up your server, you can provide the document root (or path to acme challenge directory) of each domain in a JSON format. It will create the *.well-known/acme-challenge* directory under document root (if not exists already) and put the temporary challenge files there.
 
 **For sites using Wordpress or framework like Laravel, the use of document root as the destination for challenge directory may or may not work. Use the method described in section 3.3 (or section 3.2 if you have full access to the server)**
 
-An example config file should look like this:
+To pass document root for each of your domain/subdomain you will need create a json file like this:
 
 **config.json:**
 ```json
@@ -94,40 +128,10 @@ An example config file should look like this:
 }
 ```
 
-###3.2: Using acme-dir as in acme-tiny (requires you to configure the server):
-This method is the same as acme-tiny. This is an abundant feature of **letsacme** as you can pass all these options using the JSON configuration file. It is provided only to be compatible with acme-tiny, i.e the same method to run the acme-tiny client will work for this script too. But the output is different than the acme-tiny tool (by default). While acme-tiny prints only the cert on stdout, **letsacme** prints both cert and chain (i.e fullchain) on stdout by default. If you provide `--no-chain` then the output will match that of acme-tiny.
-
-You can define the *AcmeDir* inside the JSON configuration file too.
-
-acme-dir method requires you to create a challenge directory first (not required any more, it will create it if it doesn't exist and has the permission to do so):
-```sh
-#make some challenge folder (modify to suit your needs)
-mkdir -p /var/www/challenges/
-```
-Then you need to configure your server. 
-
-Example for nginx (copied from acme-tiny readme):
-```nginx
-server {
-    listen 80;
-    server_name yoursite.com www.yoursite.com;
-
-    location /.well-known/acme-challenge/ {
-        alias /var/www/challenges/;
-        try_files $uri =404;
-    }
-
-    ...the rest of your config
-}
-```
-On apache2  you can set Aliases:
-```apache
-Alias /.well-known/acme-challenge /var/www/challenges
-```
-**You can't use this method on shared server** as most of the shared server won't allow Aliases in AccessFile. For shared server/hosting, you should either use your site's document root as the destination for acme-challenges, or redirect the challenges to a different directory which has a valid and active URL and allows http file download without hindrance. Follow the following step (section 3.3) to do that.
+**Note:** You can pass all other options in this config json too. see <a href="#config-json">Options</a> for more details.
 
 <div id="work-around"></div>
-###3.3 What will you do if the challenge directory/document root doesn't allow normal http on port 80:
+###3.3 What will you do if the challenge directory/document root doesn't allow normal http on port 80 (workaround):
 **The challenge directory must be accessible with normal http on port 80.**
 
 But this may not be possible all the time. So, what will you do?
@@ -150,64 +154,31 @@ RewriteRule ^.well-known/acme-challenge/(.*)$ http://challenge.example.com/chall
 ## If you have any rule that redirects http to https, make sure this rule stays above that one
 ## To keep it simple, add this rule above all other rewrite rules.
 ```
-And provide the challenge directory (the `challenge` directory path inside the document root) to **letsacme** as an *acme-dir* (not as document root) with `--acme-dir` option or define it inside the config.json file:
-```json
-{
-"AcmeDir":"/var/www/subdomain/challenge"
-}
-```
-**You can of course enable https for this subdomain too (but don't do it, keep it http).**
+And provide the challenge directory as acme-dir (not document root) by either `--acme-dir` option or defining `AcmeDir` json property in config json i.e `--acme-dir /var/www/challenge` or using global acme-dir definition in config json:
 
-If you are not sure of how the json file should be layed out, look inside the *config.json* file. It's a complete configuration file. You can pass all the options with the configuration json file (except `--config-json` of course, and `--quiet`). When using the `"AcmeDir"` property, don't define document root for individual domains, it will force it to use the document root instead, and also, don't pass AcmeDir as document root, they are **not** the same.
-
-Also, you can pass separate *AcmeDir* for each of the domain too:
 ```json
-{
-"example.com": {
-    "AcmeDir":"/var/www/subdomain/challenge1"
-    },
-"subdomain1.example.com": {
-    "AcmeDir":"/var/www/subdomain/challenge2"
-    },
-"subdomain2.example.com": {
-    "AcmeDir":"/var/www/subdomain/challenge3"
-    },
-"subdomain3.example.com": {
-    "AcmeDir":"/var/www/subdomain/challenge4"
-    },
-"AccountKey":"./account.key",
-"CSR": "./domain.csr"
-}
+"AcmeDir": "/var/www/challenge"
 ```
+**Do not install SSL on this site. If you do, at least do not redirect http to https, otherwise it won't work.**
 
 **Even though it's peculiar and a bit tedious, it is supposed to work with all the situations** as long as the subdomain is properly active. So if you want to move to this method instead of all the other methods available, that wouldn't be a bad idea at all.
-
-**Note:** You don't need different definition of acme-dir or document-root for www and non-www versions of your site. The script searches for www version if non-www is not defined and vice versa. If both is defined, they will be taken as they are passed (careful).
-
-**See the advanced section for more details.**
 
 ##4: Get a signed certificate:
 To get a signed certificate, all you need is the private key, the CSR, the JSON configuration file (optional) and a single line of python command (**one of the commands mentioned below**, choose according to your requirements).
 
-If you created the *config.json* file in previous step:
+If you created a *config.json* (it contains all options) file:
 ```sh
-python letsacme.py --no-chain --account-key ./account.key --csr ./domain.csr --config-json ./config.json > ./signed.crt
+python letsacme.py --config-json ./config.json > ./fullchain.crt
 ```
-If you didn't create the config.json file, then pass the json string itself as an argument:
+If you didn't create the config.json file and want to use acme-dir, then:
 ```sh
-python letsacme.py --no-chain --account-key ./account.key --csr ./domain.csr --config-json '{"example.com":{"DocumentRoot":"/var/www/public_html"},"subdomain.example.com":{"DocumentRoot":"/var/www/subdomain"}}' > ./signed.crt
+python letsacme.py --no-chain --account-key ./account.key --csr ./domain.csr --acme-dir /path/to/acme-dir > ./signed.crt
 ```
 Notice the `--no-chain` option; if you omitted this option then you would get a fullchain (cert+chain). Also, you can get the chain, cert and fullchain separately:
 
 ```sh
-python letsacme.py --account-key ./account.key --csr ./domain.csr --config-json ./config.json --cert-file ./signed.cert --chain-file ./chain.crt > ./fullchain.crt
+python letsacme.py --account-key ./account.key --csr ./domain.csr --acme-dir /path/to/acme-dir --cert-file ./signed.cert --chain-file ./chain.crt > ./fullchain.crt
 ```
-
-If you want to use `--acme-dir`, then:
-```sh
-python letsacme.py --account-key ./account.key --csr ./domain.csr --acme-dir /var/www/challenges/ --cert-file ./signed.crt --chain-file ./chain.crt > ./fullchain.crt
-```
-
 This will create three files: **signed.crt** (the certificate), **chain.crt** (chain), **fullchain.crt** (fullchain).
 
 
@@ -258,7 +229,7 @@ But the above code is not recommended as it only tries for once in a month. It m
 while true;do
     if /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key \
         --csr /path/to/domain.csr \
-        --config-json /path/to/config.json \
+        --acme-dir /path/to/acme-dir \
         --cert-file /path/to/signed.crt \
         --chain-file /path/to/chain.crt \
         > /path/to/fullchain.crt \
@@ -286,7 +257,7 @@ Even better if you include an initial random delay:
 ### Another way:
 Let's Encrypt recommends you to run the renewal at least every day. That can be achieved too:
 ```sh
-0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --config-json /path/to/config.json --cert-file /path/to/signed1.crt --chain-file /path/to/chain1.crt  > /path/to/fullchain1.crt 2>> /var/log/letsacme.log
+0 12 * * * /usr/local/bin/perl -le 'sleep rand 43200' && /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key --csr /path/to/domain.csr --acme-dir /path/to/acme-dir --cert-file /path/to/signed1.crt --chain-file /path/to/chain1.crt  > /path/to/fullchain1.crt 2>> /var/log/letsacme.log
 ```
 The above cron job runs the command once every day at a random time as it has to wait until perl gets its' sleep (max range 12 hours (43200s)).
 
@@ -294,7 +265,7 @@ Instead of using the long command, it will be much more readable and easy to mai
 ```sh
 /usr/bin/python /path/to/letsacme.py --account-key /path/to/account.key \
     --csr /path/to/domain.csr \
-    --config-json /path/to/config.json \
+    --acme-dir /path/to/acme-dir \
     --cert-file /path/to/signed1.crt \
     --chain-file /path/to/chain1.crt \
     > /path/to/fullchain1.crt \
@@ -314,57 +285,60 @@ We are renewing the certificate every day but that doesn't mean we have to insta
 
 #Permissions:
 
-1. **Challenge directory:** The script needs **permission to write** files to the challenge directory which is in the document root of each domain (for the Config JSON). It simply means that the script requires permission to write to your document root. If that seems to be a security issue then you can work it around by creating the challenge directories first. If the challenge directory already exists it will only need permission to write to the challenge directory not the document root. The acme-dir method needs **write permission** to the directory specified by `--acme-dir`.
-2. **Account key:** Save the *account.key* file to a secure location. **letsacme** only needs **read permission** to it, so you can revoke write permission from it.
+1. **Challenge directory:** The script needs **write permission** to the challenge directory (document root or acme-dir). If writing into document root seems to be a security issue then you can work it around by creating the challenge directories first. If the challenge directory already exists it will only need permission to write to the challenge directory not the document root. The acme-dir method needs **write permission** to the directory specified by `--acme-dir`.
+2. **Account key:** Save the *account.key* file to a secure location. **letsacme** only needs **read permission** to it.
 3. **Domain key:** Save the *domain.key* file to a secure location. **letsacme** doesn't use this file. So **no permission** should be allowed for this file.
 4. **Cert files:** Save the *signed.crt*, *chain.crt* and *fullchain.crt* in a secure location. **letsacme** needs **write permission** for these files as it will update these files in a timely basis.
-5. **Config json:** Save it in a secure location (It stores the path to the document root for each domain). **letsacme** needs only **read permission** to this file.
+5. **Config json:** Save it in a secure location. **letsacme** needs only **read permission** to this file.
 
 As you will want to secure yourself as much as you can and thus give as less permission as possible to the script, I suggest you create an extra user for this script and give that user write permission to the challenge directory and the cert files, and read permission to the private key (*account.key*) and the config file (*config.json*) and nothing else.
 
-#Available options:
+#Options:
 
-Run it with `-h` flag to get help.
+Run it with `-h` flag to get help and view the options.
 ```sh
 python letsacme.py -h
 ```
 It will show you all the available options that are supported by the script. These are the options currently supported:
 
-```sh
-  -h, --help            show this help message and exit
-  --account-key ACCOUNT_KEY
-                        Path to your Let's Encrypt account private key.
-  --csr CSR             Path to your certificate signing request.
-  --config-json CONFIG_JSON
-                        Configuration JSON file. Must contain
-                        "DocumentRoot":"/path/to/document/root" entry for each
-                        domain.
-  --acme-dir ACME_DIR   Path to the .well-known/acme-challenge/ directory
-  --cert-file CERT_FILE
-                        File to write the certificate to. Overwrites if file
-                        exists.
-  --chain-file CHAIN_FILE
-                        File to write the certificate to. Overwrites if file
-                        exists.
-  --quiet               Suppress output except for errors.
-  --ca CA               Certificate authority, default is Let's Encrypt.
-  --no-chain            Fetch chain (CABUNDLE) but do not print it on stdout.
-  --no-cert             Fetch certificate but do not print it on stdout.
-  --force               Apply force. If a directory is found inside the
-                        challenge directory with the same name as challenge
-                        token (paranoid), this option will delete the
-                        directory and it's content (Use with care).
-  --test                Get test certificate (Invalid certificate). This
-                        option won't have any effect if --ca is passed.
-  --version             Show version info.
-```
+Command line option | Equivalent JSON | Details
+---------- | ------------- | -------
+`-h`, `--help` | N/A | show this help message and exit
+`--account-key PATH` | `"AccountKey": "PATH"` | Path to your Let's Encrypt account private key.
+`--csr PATH` | `"CSR": "PATH"` | Path to your certificate signing request.
+`--config-json PATH/JSON_STRING` | N/A |Configuration JSON file.
+`--acme-dir PATH` | `"AcmeDir": "PATH"` | Path to the .well-known/acme-challenge/ directory
+`--cert-file PATH` | `"CertFile": "PATH"` | File to write the certificate to. Overwrites if file exists.
+`--chain-file PATH` | `"ChainFile": "PATH"` | File to write the certificate to. Overwrites if file exists.
+`--quiet` | N/A | Suppress output except for errors.
+`--ca URL` | `"CA": "URL"` | Certificate authority, default is Let's Encrypt.
+`--no-chain` | `"NoChain": "True/False"` | Fetch chain (CABUNDLE) but do not print it on stdout.
+`--no-cert` | `"NoCert": "True/False"` |       Fetch certificate but do not print it on stdout.
+`--force` | `"Force: "True/False"` | Apply force. If a directory is found inside the challenge directory with the same name as challenge token (paranoid), this option will delete the directory and it's content (Use with care).
+`--test` | `"Test": "True/False"` | Get test certificate (Invalid certificate). This option won't have any effect if --ca is passed.
+`--version` | N/A | Show version info.
 
+
+#Passing options:
+
+You can either pass the options directly as command line parameters when you run the script or save the options in configuration json file and pass the path to the configuration file with `--config-json`. The `--config-json` option can also take a raw json string instead of a file path.
+
+If you want to use the acme-dir method, then there's no need to use the config json unless you want to keep your options together, saved somewhere and shorten the command that will be run. But if you use document root as the challenge directory, it is a must to define them in a config json.
+
+**Most of the previous examples show how you can use it without config json**, and this is how you use it with the config json:
+
+```sh
+python letsacme.py --config-json /path/to/config.json
+```
+Now letsacme will take all options from that configuration file.
+
+<div id="config-json"></div>
 #Advanced info about the configuration file:
 
 1. Arguments passed in the command line takes priority over properties/options defined in the JSON file.
 2. DocumentRoot and AcmeDir can be defined both globally and locally (per domain basis). If any local definition isn't found, then global definition will be searched for.
 3. AcmeDir takes priority over DocumentRoot, and local definition takes priority over global definition.
-4. The properties (keys/optons) are case sensitive.
+4. The properties (keys/options) are case sensitive.
 5. **True** **False** values are case insensitive.
 6. If the challenge directory (AcmeDir or DocumentRoot) for non-www site isn't defined, then a definition for it's www version will be searched for and vice versa. If both are defined, they are taken as is.
 
@@ -431,9 +405,9 @@ For <a href="#work-around">3.3</a> workaround, change the AcmeDir to `/var/www/c
 
 
 #Test suit:
-The **test** directory contains a simple Bash script named **check.sh**. It creates two local dummy sites and <span class="warning">exposes them publicly (careful) on Internet using ngrok</span>, then creates *account key*, *dom.key*, *CSR* for these two sites and gets the certificate and chain. The location of these two sites are */home/user/letsacme-host1* and */home/user/letsacme-host2*. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
+The **test** directory contains a simple Bash script named **check.sh**. It creates two temporary local sites (in */tmp*) and <span class="warning">exposes them publicly (careful) on Internet using ngrok</span>, then creates *account key*, *dom.key*, *CSR* for these two sites and gets the certificate and chain. The certificates are retrieved twice: first, by using Document Root and second, by using Acme Dir.
 
-Part of this script requires root privilege (It needs to create custom sites on localhost and restart apache2).
+Part of this script requires root privilege (It needs to create custom local sites and configure/restart apache2).
 
 This script depends on various other scripts/tools. An **inst.sh** file is provided to install/download the dependencies.
 
@@ -443,7 +417,8 @@ This script depends on various other scripts/tools. An **inst.sh** file is provi
 2. Apache2 server
 3. jq
 4. ngrok
-5. [gencsr](https://github.com/neurobin/gencsr)
+5. [gencsr](https://github.com/neurobin/gencsr) \[included\]
+5. lampi (This script creates the local sites) \[included\]
 
 You can get the dependencies by running the *inst.sh* script:
 
@@ -463,5 +438,10 @@ chmod +x ./test/check.sh
 **Do not run the ./test/travis_check.sh on your local machine.** It's written for [travis build](https://travis-ci.org/neurobin/letsacme) only and contains 
 unguarded code that can harm your system.
 
-If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page for letsacme](https://travis-ci.org/neurobin/letsacme). Travis test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (the <a href="#work-around">3.3</a> workaround). **Both test checks with (DocumentRoot) config-json and without (with AcmeDir) config-json**
+If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page for letsacme](https://travis-ci.org/neurobin/letsacme). Travis test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (the <a href="#work-around">3.3</a> workaround).
+
+**Both tests performs:**
+
+1. A test defining document roots in config json.
+2. A test using acme-dir without config json.
 

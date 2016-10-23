@@ -129,8 +129,8 @@ while true; do
     fi
     t2=$(date +%s)
     time="$(expr $t2 - $t1)"
-    t1=$(date +%s)
     if [ $time -ge $max_t ]; then
+        t1=$(date +%s)
         prnt "\tngork froze. Restarting ..."
         kill $pid >/dev/null 2>&1 && prnt "\tKilled pid: $pid"
         nohup ./ngrok start -config "$nconf_f" $site1 $site2 >/dev/null 2>&1 &

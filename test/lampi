@@ -3,7 +3,7 @@ p_name=lampi
 p_author='Md Jahidul Hamid'
 p_source='https://github.com/neurobin/lampi'
 p_bugt="$p_source/issues"
-p_version=0.1.6
+p_version=0.1.7
 ver_info="
 Name        : $p_name
 Version     : $p_version
@@ -12,31 +12,32 @@ Source      : $p_source
 Bug tracker : $p_bugt
 "
 help="
-######################### lampi ##############################
-############# LAMP stack installer for Ubuntu ################
-##############################################################
+############################## lampi #####################################
+################### LAMP stack installer for Ubuntu ######################
+##########################################################################
 # Usage:
-#   lampi [-i, -ri, -u, -rm, -f -nu, -s, -so, -n, -dr, -v, -h]
+#   lampi [-n, -dr, -i, -ri, -u, -s, -so, -rm, -rmd, -nsr, -f -nu, -v, -h]
 #
 # Run simply lampi -i to install the LAMP stack
 # with default configs
 #
 # Options:
-#   [ -i, --install ]           : install LAMP
-#   [ -ri, --reinstall ]        : reinstall LAMP
-#   [ -u, --uninstall ]         : uninstall LAMP
-#   [ -rm, --remove ]           : remove a site
-#   [ -f, --force ]             : force (remove directory)
-#   [ -nu, --no-update ]        : do not run apt-get update
-#   [ -s, --ssl ]               : enable SSL   
-#   [ -so, --ssl-only ]         : configure for https site only 
-#   [ -n, --name ]              : server name (default localhost)
-#   [ -dr, --doc-root ]         : arbitrary document root
-#   [ -npa, --no-php-myadmin ]  : no php my admin
-#   [ -nsr, --no-server-restart]: no server restart
-#   [ -v, --version ]           : show version info
-#   [ -h, --help ]              : show help 
-##############################################################
+#   -n | --name                 | server name (default localhost)
+#   -dr | --doc-root            | arbitrary document root
+#   -i | --install              | install LAMP
+#   -ri | --reinstall           | reinstall LAMP
+#   -u | --uninstall            | uninstall LAMP
+#   -s | --ssl                  | enable SSL
+#   -rm | --remove              | remove a site
+#   -rmd | --remove-with-dir    | remove a site and it's directory
+#   -f | --force                | force
+#   -nu | --no-update           | do not run apt-get update
+#   -so | --ssl-only            | configure for https site only 
+#   -npa | --no-php-myadmin     | no php my admin
+#   -nsr | --no-server-restart  | no server restart
+#   -v | --version              | show version info
+#   -h | --help                 | show help 
+##########################################################################
 "
 dr=''
 ssl=false
@@ -48,6 +49,7 @@ uninstall=false
 reinstall=false
 remove=
 force=false
+rmd=false
 npa=false
 nsr=false
 for op in "$@";do
@@ -125,6 +127,17 @@ for op in "$@";do
                 exit 1
             fi
             ;;
+        -rmd|--remove-with-dir)
+            shift
+            if [[ "$1" != "" ]]; then
+                remove="$1"
+                rmd=true
+                shift
+            else
+                echo "E: Arg missing for -rm option"
+                exit 1
+            fi
+            ;;
         -n|--name)
             shift
             if [[ "$1" != "" ]]; then
@@ -194,7 +207,7 @@ if [ -n "$remove" ]; then
     done
     if [ -f "$remove_file.conf" ]; then
         rm_dir="$(sed -n -e 's/^[[:blank:]]*DocumentRoot[[:blank:]]*\([^#]*\).*/\1/p' "$remove_file.conf")"
-        if $force && ! test -z "$rm_dir" && [ "." != "$rm_dir" ] && [ '..' != "$rm_dir" ]; then
+        if $rmd && ! test -z "$rm_dir" && [ "." != "$rm_dir" ] && [ '..' != "$rm_dir" ]; then
             rm -r "$rm_dir"
         fi
     fi
