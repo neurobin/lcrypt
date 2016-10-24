@@ -32,5 +32,6 @@
 "NoChain":"False",
 "NoCert":"False",
 "Test":"False",
-"Force":"False"
+"Force":"False",
+"Quiet":"False"
 }

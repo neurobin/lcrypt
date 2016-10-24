@@ -320,7 +320,7 @@ Command line option | Equivalent JSON | Details
 
 #Passing options:
 
-You can either pass the options directly as command line parameters when you run the script or save the options in configuration json file and pass the path to the configuration file with `--config-json`. The `--config-json` option can also take a raw json string instead of a file path.
+You can either pass the options directly as command line parameters when you run the script or save the options in a configuration json file and pass the path to the configuration file with `--config-json`. The `--config-json` option can also take a raw json string instead of a file path.
 
 If you want to use the acme-dir method, then there's no need to use the config json unless you want to keep your options together, saved somewhere and shorten the command that will be run. But if you use document root as the challenge directory, it is a must to define them in a config json.
 
@@ -381,7 +381,8 @@ A full fledged JSON configuration file:
 "NoChain":"False",
 "NoCert":"False",
 "Test":"False",
-"Force":"False"
+"Force":"False",
+"Quiet":"False"
 }
 ```
 Another full-fledged JSON file using only a single AcmeDir as challenge directory for every domain:
@@ -399,7 +400,8 @@ Another full-fledged JSON file using only a single AcmeDir as challenge director
 "NoChain":"False",
 "NoCert":"False",
 "Test":"False",
-"Force":"False"
+"Force":"False",
+"Quiet":"False"
 }
 ```
 The above JSON is exactly for the scenario where you are using it in acme-tiny compatible mode or using the <a href="#work-around">3.3</a> workaround for shared servers.
