@@ -1,9 +1,9 @@
 [![Build Status](https://travis-ci.org/neurobin/letsacme.svg?branch=release)](https://travis-ci.org/neurobin/letsacme)
 
 
-The **letsacme** script automates the process of getting a signed TLS/SSL certificate from Let's Encrypt using the ACME protocol. It will need to be run on your server and have **access to your private account key**. It gets both the certificate and the chain (CABUNDLE) and prints them on stdout unless specified otherwise.
+The **letsacme** script automates the process of getting a signed TLS/SSL certificate from Let's Encrypt using the ACME protocol. It will need to be run on your server and have **access to your private Let's Encrypt account key**. It gets both the certificate and the chain (CABUNDLE) and prints them on stdout unless specified otherwise.
 
-**PLEASE READ THE SOURCE CODE! YOU MUST TRUST IT WITH YOUR PRIVATE KEYS!**
+**PLEASE READ THE SOURCE CODE! YOU MUST TRUST IT WITH YOUR PRIVATE LET'S ENCRYPT ACCOUNT KEY!**
 
 #Dependencies:
 1. Python
@@ -421,7 +421,7 @@ This script depends on various other scripts/tools. An **inst.sh** file is provi
 3. jq
 4. ngrok
 5. [gencsr](https://github.com/neurobin/gencsr) \[included\]
-5. [lampi](https://github.com/neurobin/lampi) \[included\](This script creates the local sites)
+5. [lampi](https://github.com/neurobin/lampi) \[included\] (This script creates the local sites)
 
 You can get the dependencies by running the *inst.sh* script:
 
