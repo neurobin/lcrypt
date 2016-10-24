@@ -396,7 +396,7 @@ def main(argv):
     )
     parser.add_argument("--account-key", help="Path to your Let's Encrypt account private key.")
     parser.add_argument("--csr", help="Path to your certificate signing request.")
-    parser.add_argument("--config-json", default=None, help="Configuration JSON file. \
+    parser.add_argument("--config-json", default=None, help="Configuration JSON string/file. \
                         Must contain \"DocumentRoot\":\"/path/to/document/root\" entry \
                         for each domain.")
     parser.add_argument("--acme-dir", default=None, help="Path to the acme challenge directory")

@@ -305,7 +305,7 @@ Command line option | Equivalent JSON | Details
 `-h`, `--help` | N/A | show this help message and exit
 `--account-key PATH` | `"AccountKey": "PATH"` | Path to your Let's Encrypt account private key.
 `--csr PATH` | `"CSR": "PATH"` | Path to your certificate signing request.
-`--config-json PATH/JSON_STRING` | N/A |Configuration JSON file.
+`--config-json PATH/JSON_STRING` | N/A |Configuration JSON string/file.
 `--acme-dir PATH` | `"AcmeDir": "PATH"` | Path to the .well-known/acme-challenge/ directory
 `--cert-file PATH` | `"CertFile": "PATH"` | File to write the certificate to. Overwrites if file exists.
 `--chain-file PATH` | `"ChainFile": "PATH"` | File to write the certificate to. Overwrites if file exists.
