@@ -130,7 +130,9 @@ To pass document root for each of your domain/subdomain you will need create a j
 **Note:** You can pass all other options in this config json too. see <a href="#config-json">Options</a> for more details.
 
 <div id="work-around"></div>
+
 ### 3.3 What will you do if the challenge directory/document root doesn't allow normal http on port 80 (workaround):
+
 **The challenge directory must be accessible with normal http on port 80.**
 
 But this may not be possible all the time. So, what will you do?
@@ -336,6 +338,7 @@ python letsacme.py --config-json "$conf_json"
 ```
 
 <div id="config-json"></div>
+
 # Advanced info about the configuration file:
 
 1. Arguments passed in the command line takes priority over properties/options defined in the JSON file.
