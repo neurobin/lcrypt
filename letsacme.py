@@ -112,9 +112,9 @@ def write_file(path, content, log, exc=True):
         with open(path, "w") as fileh:
             fileh.write(content)
     except IOError as err:
-        log.error(str(err))
+        log.exception("I/O error.")
         if exc:
-            sys.exit(1)
+            raise
 
 
 def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, force):
@@ -130,7 +130,8 @@ def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, forc
             os.makedirs(path)
         except OSError as err:
             if err.errno != errno.EEXIST:
-                error_exit('E: '+str(err), log)
+                log.exception("Exception in make_drs")
+                raise
 
     # get challenge directory from json by domain name
     def get_challenge_dir(conf_json, dom, acmed):
@@ -319,8 +320,9 @@ def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, forc
             assert resp_data == keyauthorization
         except (IOError, AssertionError):
             os.remove(wellknown_path)
-            error_exit("\tE: Wrote file to {0}, but couldn't download {1}".format(\
-                       wellknown_path, wellknown_url), log)
+            log.critical("\tE: Wrote file to {0}, but couldn't download {1}".format(\
+                       wellknown_path, wellknown_url,))
+            raise
 
         # notify challenge is met
         code, result, crt_info = _send_signed_request(challenge['uri'], {
@@ -338,9 +340,9 @@ def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, forc
                 challenge_status = json.loads(resp.read().decode('utf8'))
             except IOError as err:
                 os.remove(wellknown_path)
-                error_exit("\tE: Error checking challenge: {0} {1}\n{2}".format(\
-                           resp.code, json.dumps(resp.read().decode('utf8'),\
-                           indent=4), str(err)), log)
+                log.critical("\tE: Error checking challenge: {0} {1}\n{2}".format(\
+                           resp.code, json.dumps(resp.read().decode('utf8'), indent=4), str(err),))
+                raise
             if challenge_status['status'] == "pending":
                 time.sleep(1)
             elif challenge_status['status'] == "valid":
@@ -435,13 +437,14 @@ def main(argv):
                 with open(args.config_json, "r") as fileh:
                     config_json_s = fileh.read()
             except IOError as err:
-                error_exit("E: Failed to read json file: "+args.config_json+"\n"+str(err),
-                           LOGGER)
+                LOGGER.critical("E: Failed to read json file: "+args.config_json)
+                raise
         # Now we are sure that config_json_s is a json string, not file
         try:
             conf_json = json.loads(config_json_s)
         except ValueError as err:
-            error_exit("E: Failed to parse json"+"\n"+str(err), log=LOGGER)
+            LOGGER.critical("E: Failed to parse json")
+            raise
         args.account_key, args.csr, args.acme_dir, args.cert_file,\
         args.chain_file, args.ca = get_options_from_json(conf_json,
                                                          args.account_key,
