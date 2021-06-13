@@ -1,8 +1,6 @@
 [![Build Status](https://travis-ci.org/neurobin/letsacme.svg?branch=release)](https://travis-ci.org/neurobin/letsacme)
 
-```diff
-- This project is outdated and orphaned. Please use selectively the acme_tiny method described in this readme for both shared hosting and dedicated hosting.
-```
+****This project is outdated and orphaned. Please use selectively the acme_tiny method described in this readme for both shared hosting and dedicated hosting.**
 
 The **letsacme** script automates the process of getting a signed TLS/SSL certificate from Let's Encrypt using the ACME protocol. It will need to be run on your server and have **access to your private Let's Encrypt account key**. It gets both the certificate and the chain (CABUNDLE) and prints them on stdout unless specified otherwise.
 
