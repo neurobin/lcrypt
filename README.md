@@ -1,5 +1,8 @@
 [![Build Status](https://travis-ci.org/neurobin/letsacme.svg?branch=release)](https://travis-ci.org/neurobin/letsacme)
 
+```diff
+- This project is outdated and orphaned. Please use selectively the acme_tiny method described in this readme for both shared hosting and dedicated hosting.
+```
 
 The **letsacme** script automates the process of getting a signed TLS/SSL certificate from Let's Encrypt using the ACME protocol. It will need to be run on your server and have **access to your private Let's Encrypt account key**. It gets both the certificate and the chain (CABUNDLE) and prints them on stdout unless specified otherwise.
 
@@ -11,7 +14,7 @@ The **letsacme** script automates the process of getting a signed TLS/SSL certif
 
 # How to use:
 
-If you just want to renew an existing certificate, you will only have to do Steps 4~6. 
+If you just want to renew an existing certificate, you will only have to do Steps 4~6.
 
 **For shared servers/hosting:** Get only the certificate (step 1~4) by running the script on your server and then install the certificate with cpanel or equivalent control panels. If you don't want to go all technical about it and just want to follow a step by step process to get the certificate, then [this tutorial](https://neurobin.org/docs/web/letsacme/get-letsencrypt-certficate-for-shared-hosting/) may be the right choice for you.
 
@@ -53,7 +56,7 @@ openssl req -new -sha256 -key domain.key -subj "/C=US/ST=CA/O=MY Org/CN=example.
 It would probably be easier if you use [gencsr](https://github.com/neurobin/gencsr) to create CSR for multiple domains.
 
 ## 3: Prepare the challenge directory/s:
-**letsacme** provides two methods to prepare the challenge directory/s to complete the acme challenges. One of them is the same as [acme-tiny](https://github.com/diafygi/acme-tiny) (with `--acme-dir`), the other is quite different and simplifies things for users who doesn't have full access to their servers i.e for shared servers or shared hosting. 
+**letsacme** provides two methods to prepare the challenge directory/s to complete the acme challenges. One of them is the same as [acme-tiny](https://github.com/diafygi/acme-tiny) (with `--acme-dir`), the other is quite different and simplifies things for users who doesn't have full access to their servers i.e for shared servers or shared hosting.
 
 **Whatever method you use, note that the challenge directory needs to be accessible with normal http on port 80.**
 
@@ -73,7 +76,7 @@ This is how you can prepare an acme-dir:
 #make some challenge directory (modify to suit your needs)
 mkdir -p /var/www/challenges/
 ```
-Then you need to configure your server. 
+Then you need to configure your server.
 
 Example for nginx (copied from acme-tiny readme):
 ```nginx
@@ -443,7 +446,7 @@ chmod +x ./test/check.sh
 ./test/check.sh
 ```
 
-**Do not run the ./test/travis_check.sh on your local machine.** It's written for [travis build](https://travis-ci.org/neurobin/letsacme) only and contains 
+**Do not run the ./test/travis_check.sh on your local machine.** It's written for [travis build](https://travis-ci.org/neurobin/letsacme) only and contains
 unguarded code that can harm your system.
 
 If you don't want to perform the test yourself but just want to see the outcome, then visit [travis build page for letsacme](https://travis-ci.org/neurobin/letsacme). Travis test uses apache2 Alias in AcmeDir method while the local test uses redirect through .htaccess (the <a href="#work-around">3.3</a> workaround).
@@ -452,4 +455,3 @@ If you don't want to perform the test yourself but just want to see the outcome,
 
 1. A test defining document roots in config json.
 2. A test using acme-dir without config json.
-
