@@ -207,7 +207,7 @@ def get_crt(account_key, csr, conf_json, well_known_dir, acme_dir, log, CA, forc
             resp = urlopen(url, data.encode('utf8'))
             return resp.getcode(), resp.read(), resp.info()
         except IOError as err:
-            return getattr(err, "code", None), getattr(err, "read", err.__str__),\
+            return getattr(err, "code", None), getattr(err, "read", err.__str__)(),\
                            getattr(err, "info", None)()
 
     crt_info = set([])
